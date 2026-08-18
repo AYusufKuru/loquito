@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const text = extractTextFromBuffer(buffer, fileName);
+    const text = await extractTextFromBuffer(buffer, fileName);
     if (parseFinanceDocument(text, fileName)) {
       const receipt = await processBradescoUpload(prisma, buffer, fileName);
       return NextResponse.json({ receipt });

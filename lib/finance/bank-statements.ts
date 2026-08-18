@@ -79,7 +79,7 @@ export async function processBradescoUpload(
   buffer: Buffer,
   fileName: string,
 ) {
-  const text = extractTextFromBuffer(buffer, fileName);
+  const text = await extractTextFromBuffer(buffer, fileName);
   const parsed =
     parseFinanceDocument(text, fileName) ?? parseBradescoConfirmation(text);
 
@@ -97,7 +97,7 @@ export async function uploadWeeklyStatement(
   buffer: Buffer,
   fileName: string,
 ) {
-  const text = extractTextFromBuffer(buffer, fileName);
+  const text = await extractTextFromBuffer(buffer, fileName);
   const saved = await saveUploadedFile("statements", buffer, fileName);
 
   const periodMatch = text.match(

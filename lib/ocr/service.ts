@@ -244,7 +244,7 @@ export async function parseOrderDocumentBuffer(
   fileName: string,
   options?: { channel?: OrderChannel; customerId?: string },
 ): Promise<ParsedOrderDraft> {
-  const text = extractTextFromBuffer(buffer, fileName);
+  const text = await extractTextFromBuffer(buffer, fileName);
   return parseOrderDocumentText(db, text, options);
 }
 

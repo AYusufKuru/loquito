@@ -1,5 +1,11 @@
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "fs/promises";
 import path from "path";
+
+import {
+  getStorageBucket,
+  getSupabaseAdmin,
+  isSupabaseStorageEnabled,
+} from "@/lib/files/supabase";
 
 const STORAGE_ROOT = path.resolve(
   process.cwd(),
@@ -35,6 +41,18 @@ function sanitizeSubdir(subdir: string): string {
     .join("/");
 }
 
+export function contentTypeForFileName(fileName: string): string {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".txt")) return "text/plain; charset=utf-8";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".csv")) return "text/csv; charset=utf-8";
+  if (lower.endsWith(".ofx")) return "application/x-ofx";
+  return "application/octet-stream";
+}
+
 export function assertAllowedUpload(fileName: string, size: number): void {
   if (size <= 0) {
     throw new UploadValidationError("Dosya boş.");
@@ -59,13 +77,65 @@ export async function saveUploadedFile(
   const safeSubdir = sanitizeSubdir(subdir);
   const safeName = sanitizeSegment(originalName) || "upload";
   const unique = `${Date.now()}-${safeName}`;
+  const storagePath = [safeSubdir, unique].filter(Boolean).join("/");
+
+  if (isSupabaseStorageEnabled()) {
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase.storage
+      .from(getStorageBucket())
+      .upload(storagePath, buffer, {
+        contentType: contentTypeForFileName(originalName),
+        upsert: false,
+      });
+
+    if (error) {
+      throw new UploadValidationError(error.message || "Dosya yüklenemedi.");
+    }
+
+    return { filePath: storagePath, fileName: originalName };
+  }
+
   const dir = path.join(STORAGE_ROOT, safeSubdir);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, unique), buffer);
-  return {
-    filePath: [safeSubdir, unique].filter(Boolean).join("/"),
-    fileName: originalName,
-  };
+  return { filePath: storagePath, fileName: originalName };
+}
+
+export async function readUploadedFile(filePath: string): Promise<Buffer> {
+  if (isSupabaseStorageEnabled()) {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.storage
+      .from(getStorageBucket())
+      .download(filePath);
+
+    if (error || !data) {
+      throw new Error("Dosya okunamadı.");
+    }
+
+    return Buffer.from(await data.arrayBuffer());
+  }
+
+  const fullPath = resolveStoragePath(filePath);
+  return readFile(fullPath);
+}
+
+export async function listUploadedFiles(prefix: string): Promise<string[]> {
+  const safePrefix = sanitizeSubdir(prefix);
+
+  if (isSupabaseStorageEnabled()) {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.storage
+      .from(getStorageBucket())
+      .list(safePrefix);
+
+    if (error || !data) return [];
+    return data
+      .filter((entry) => entry.name && !entry.name.endsWith("/"))
+      .map((entry) => entry.name!);
+  }
+
+  const dir = resolveStoragePath(safePrefix);
+  return readdir(dir);
 }
 
 /**

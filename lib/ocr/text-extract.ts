@@ -1,15 +1,30 @@
+import { PDFParse } from "pdf-parse";
+
 /** PDF ve metin dosyalarından okunabilir metin çıkarır */
-export function extractTextFromBuffer(buffer: Buffer, fileName: string): string {
+export async function extractTextFromBuffer(
+  buffer: Buffer,
+  fileName: string,
+): Promise<string> {
   const lower = fileName.toLowerCase();
   if (lower.endsWith(".txt") || lower.endsWith(".csv")) {
     return buffer.toString("utf8");
   }
 
   if (lower.endsWith(".pdf")) {
+    try {
+      const parser = new PDFParse({ data: buffer });
+      const result = await parser.getText();
+      await parser.destroy();
+      const text = result.text?.trim() ?? "";
+      if (text.replace(/\s/g, "").length > 40) {
+        return text;
+      }
+    } catch {
+      // Regex yedek yönteme düş
+    }
     return extractTextFromPdfBuffer(buffer);
   }
 
-  // Bilinmeyen format — latin1 ile deneme
   const asText = buffer.toString("utf8");
   if (asText.includes("BD-") || asText.includes("LQ-") || asText.includes("PROP-LQ")) {
     return asText;
@@ -21,7 +36,6 @@ function extractTextFromPdfBuffer(buffer: Buffer): string {
   const latin = buffer.toString("latin1");
   const parts: string[] = [];
 
-  // PDF literal strings: (text)
   const literalRe = /\(([^()\\]*(?:\\.[^()\\]*)*)\)/g;
   let m: RegExpExecArray | null;
   while ((m = literalRe.exec(latin)) !== null) {
@@ -33,7 +47,6 @@ function extractTextFromPdfBuffer(buffer: Buffer): string {
     if (decoded.trim().length > 1) parts.push(decoded);
   }
 
-  // BT ... ET bloklarındaki metin
   const streamRe = /BT([\s\S]*?)ET/g;
   while ((m = streamRe.exec(latin)) !== null) {
     const block = m[1];
@@ -48,7 +61,6 @@ function extractTextFromPdfBuffer(buffer: Buffer): string {
   const joined = parts.join("\n");
   if (joined.replace(/\s/g, "").length > 40) return joined;
 
-  // Son çare: yazdırılabilir ASCII dizileri
   const ascii = latin.match(/[A-Za-z0-9À-ú.,;:|\-\/\s]{8,}/g) ?? [];
   return ascii.join("\n");
 }
@@ -59,4 +71,17 @@ export function normalizeOcrText(text: string): string {
     .replace(/\u00a0/g, " ")
     .replace(/[ \t]+/g, " ")
     .trim();
+}
+
+export function isScannedOrUnreadablePdf(text: string): boolean {
+  const normalized = normalizeOcrText(text);
+  const printable = normalized.replace(/\s/g, "");
+  if (printable.length < 60) return true;
+
+  const hasOrderSignals =
+    /BD-|LQ-|PROP-LQ|PEDIDO|QUANTIDADE|RAZÃO|RAZAO|CNPJ|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/i.test(
+      normalized,
+    );
+
+  return !hasOrderSignals;
 }

@@ -1,13 +1,14 @@
-// Loquito — Prisma şeması
-// Not: enum kullanılmıyor (SQLite → PostgreSQL geçişi için durumlar string)
+// Loquito — Prisma şeması (PostgreSQL / Supabase)
+// Not: enum kullanılmıyor; durumlar string olarak saklanır
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Kimlik & Yetki ───────────────────────────────────────────────

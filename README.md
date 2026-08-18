@@ -2,13 +2,13 @@
 
 Loquito lokum fabrikası için üretim, sipariş, stok, finans ve insan kaynakları yönetim platformu.
 
-Detaylı gereksinimler: [`PROJE.md`](./PROJE.md) · Kurulum ve kullanım: [`KULLANIM.md`](./KULLANIM.md)
+Detaylı gereksinimler: [`PROJE.md`](./PROJE.md) · Kurulum: [`KULLANIM.md`](./KULLANIM.md) · Canlı yayın: [`DEPLOY.md`](./DEPLOY.md)
 
 ## Teknoloji
 
 - **Next.js 15** (App Router) + TypeScript
 - **Tailwind CSS** + shadcn/ui
-- **Prisma** + SQLite (geliştirme) → PostgreSQL (canlı)
+- **Prisma** + PostgreSQL (Supabase)
 - **JWT** oturum (`jose`)
 - **TR / EN / PT** arayüz dilleri
 

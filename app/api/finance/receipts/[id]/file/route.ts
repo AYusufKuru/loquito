@@ -1,8 +1,10 @@
-import { readFile } from "fs/promises";
 import { NextResponse } from "next/server";
 
 import { requireApiPermission } from "@/lib/auth/api-auth";
-import { resolveStoragePath } from "@/lib/files/storage";
+import {
+  contentTypeForFileName,
+  readUploadedFile,
+} from "@/lib/files/storage";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -19,11 +21,10 @@ export async function GET(
   }
 
   try {
-    const fullPath = resolveStoragePath(receipt.filePath);
-    const data = await readFile(fullPath);
-    return new NextResponse(data, {
+    const data = await readUploadedFile(receipt.filePath);
+    return new NextResponse(new Uint8Array(data), {
       headers: {
-        "Content-Type": "application/octet-stream",
+        "Content-Type": contentTypeForFileName(receipt.fileName),
         "Content-Disposition": `attachment; filename="${receipt.fileName}"`,
       },
     });

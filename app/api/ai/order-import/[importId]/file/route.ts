@@ -1,9 +1,11 @@
-import { readFile } from "fs/promises";
-
 import { NextResponse } from "next/server";
 
 import { requireApiPermission } from "@/lib/auth/api-auth";
-import { resolveStoragePath } from "@/lib/files/storage";
+import {
+  contentTypeForFileName,
+  listUploadedFiles,
+  readUploadedFile,
+} from "@/lib/files/storage";
 
 export async function GET(
   _request: Request,
@@ -18,31 +20,17 @@ export async function GET(
   }
 
   try {
-    const dir = resolveStoragePath(`order-imports/${importId}`);
-    const { readdir } = await import("fs/promises");
-    const files = await readdir(dir);
+    const files = await listUploadedFiles(`order-imports/${importId}`);
     if (files.length === 0) {
       return NextResponse.json({ error: "Dosya bulunamadı." }, { status: 404 });
     }
 
     const fileName = files[0];
-    const fullPath = resolveStoragePath(
-      `order-imports/${importId}/${fileName}`,
-    );
-    const data = await readFile(fullPath);
+    const data = await readUploadedFile(`order-imports/${importId}/${fileName}`);
 
-    const lower = fileName.toLowerCase();
-    let contentType = "application/octet-stream";
-    if (lower.endsWith(".pdf")) contentType = "application/pdf";
-    else if (lower.endsWith(".txt")) contentType = "text/plain; charset=utf-8";
-    else if (lower.endsWith(".png")) contentType = "image/png";
-    else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
-      contentType = "image/jpeg";
-    }
-
-    return new NextResponse(data, {
+    return new NextResponse(new Uint8Array(data), {
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": contentTypeForFileName(fileName),
         "Content-Disposition": `inline; filename="${fileName}"`,
       },
     });

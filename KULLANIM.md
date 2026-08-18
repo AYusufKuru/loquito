@@ -31,16 +31,20 @@ Tarayıcı: [http://localhost:3000](http://localhost:3000)
 | admin@loquito.com | admin123 | Tam yetki |
 | satis@loquito.com | (seed) | Satış (sınırlı) |
 
-### Üretim ortamı
+### Üretim ortamı (Vercel + Supabase)
+
+Ayrıntılı adımlar: [`DEPLOY.md`](./DEPLOY.md)
 
 ```bash
-npm run build
-npm run start
+npm run db:deploy   # Supabase şeması
+npm run db:seed     # İlk veriler
 ```
 
-- `DATABASE_URL` için PostgreSQL kullanın (SQLite yalnızca geliştirme).
-- `JWT_SECRET` en az 32 karakter, rastgele ve gizli tutulmalıdır.
-- `STORAGE_PATH` yazılabilir bir dizin olmalıdır.
+- `DATABASE_URL` → Supabase connection pooler (port 6543)
+- `DIRECT_URL` → Supabase direct connection (migration)
+- `JWT_SECRET` en az 32 karakter, rastgele ve gizli tutulmalıdır
+- Dosyalar için `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + bucket `loquito`
+- Lokal geliştirmede Supabase boşsa dosyalar `./storage` klasörüne yazılır
 
 ## 2. Dil seçimi
 

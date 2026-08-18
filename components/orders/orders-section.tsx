@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ClipboardList, Factory, Package } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ClipboardList, Factory, FileUp, Package } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,6 +142,8 @@ export function OrdersSection({
 
   const [editorTab, setEditorTab] = useState<"form" | "analysis" | "history">("form");
   const [loading, setLoading] = useState(false);
+  const [importPdfLoading, setImportPdfLoading] = useState(false);
+  const importPdfRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
   const {
     fieldError,
@@ -297,6 +299,64 @@ export function OrdersSection({
     setView("kanban");
     setSelectedId("");
     setIsCreating(false);
+  }
+
+  async function importPdfFile(file: File) {
+    if (!capabilities.canCreate) return;
+
+    if (view !== "editor") {
+      openEditor();
+    }
+
+    setImportPdfLoading(true);
+    clearErrors();
+    setMessage("");
+    setEditorTab("form");
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      if (customerId) form.append("customerId", customerId);
+      if (channel) form.append("channel", channel);
+
+      const res = await fetch("/api/orders/import-parse", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showError(data.error || labels.importFromPdfError);
+        return;
+      }
+
+      const fd = data.formDraft;
+      if (fd.customerId) setCustomerId(fd.customerId);
+      setChannel(fd.channel);
+      setPaymentTerms(fd.paymentTerms);
+      setFreightType(fd.freightType);
+      setDeliveryDate(fd.deliveryDate);
+      setFreightInput(fd.freightInput);
+      setNotes(fd.notes);
+      if (fd.orderNo) setOrderNo(fd.orderNo);
+      if (fd.lines.length > 0) setLines(fd.lines);
+
+      const warnings = (fd.warnings as string[] | undefined)?.filter(Boolean) ?? [];
+      setMessage(
+        warnings.length > 0
+          ? `${labels.importFromPdfSuccess} (${warnings.join(" · ")})`
+          : labels.importFromPdfSuccess,
+      );
+    } catch {
+      showError(labels.connectionError);
+    } finally {
+      setImportPdfLoading(false);
+    }
+  }
+
+  function handlePdfInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void importPdfFile(file);
   }
 
   const discountCents = parseBrlToCents(discountInput) ?? 0;
@@ -497,6 +557,13 @@ export function OrdersSection({
     return (
       <>
         {ErrorModal}
+        <input
+          ref={importPdfRef}
+          type="file"
+          accept=".pdf,.txt"
+          className="hidden"
+          onChange={handlePdfInputChange}
+        />
         <div className="space-y-5">
           <div className="sticky top-0 z-10 -mx-1 space-y-4 rounded-xl border bg-background/95 px-4 py-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -505,6 +572,18 @@ export function OrdersSection({
                   <ArrowLeft className="mr-1.5 h-4 w-4" aria-hidden />
                   {labels.backToKanban}
                 </Button>
+                {capabilities.canCreate && (isCreating || status === "draft") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={importPdfLoading}
+                    onClick={() => importPdfRef.current?.click()}
+                    title={labels.importFromPdfHint}
+                  >
+                    <FileUp className="mr-1.5 h-4 w-4" aria-hidden />
+                    {importPdfLoading ? labels.importingPdf : labels.importFromPdf}
+                  </Button>
+                )}
                 <div>
                   <p className="font-mono text-lg font-semibold leading-tight">
                     {isCreating ? labels.newOrder : orderNo}
@@ -902,6 +981,13 @@ export function OrdersSection({
 
   return (
     <div className="space-y-5">
+      <input
+        ref={importPdfRef}
+        type="file"
+        accept=".pdf,.txt"
+        className="hidden"
+        onChange={handlePdfInputChange}
+      />
       <div className="flex flex-wrap items-stretch justify-between gap-4">
         <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
@@ -929,9 +1015,20 @@ export function OrdersSection({
           />
         </div>
         {capabilities.canCreate && (
-          <Button className="shrink-0 self-center" onClick={() => openEditor()}>
-            + {labels.newOrder}
-          </Button>
+          <div className="flex shrink-0 flex-wrap gap-2 self-center">
+            <Button
+              variant="outline"
+              className="shrink-0"
+              disabled={importPdfLoading}
+              onClick={() => importPdfRef.current?.click()}
+            >
+              <FileUp className="mr-1.5 h-4 w-4" aria-hidden />
+              {importPdfLoading ? labels.importingPdf : labels.importFromPdf}
+            </Button>
+            <Button className="shrink-0" onClick={() => openEditor()}>
+              + {labels.newOrder}
+            </Button>
+          </div>
         )}
       </div>
 

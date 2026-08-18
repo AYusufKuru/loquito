@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { buildAiRecommendations } from "@/lib/ai/recommendations/service";
+import { cachedQuery, REVALIDATE, todayCacheKey } from "@/lib/cache/server";
 import { computeFinishedStockSummary } from "@/lib/finished-stock/service";
 import { FIXED_EXPENSE_DEMO_MONTH } from "@/lib/finance/constants";
 import { listOrderPayments } from "@/lib/finance/payments";
@@ -37,6 +38,15 @@ function daysBetween(from: Date, to: Date): number {
 }
 
 export async function getDashboardSnapshot(db: Db): Promise<DashboardSnapshot> {
+  return cachedQuery(
+    ["dashboard-snapshot", todayCacheKey()],
+    () => buildDashboardSnapshot(db),
+    REVALIDATE.dashboard,
+    ["dashboard"],
+  );
+}
+
+async function buildDashboardSnapshot(db: Db): Promise<DashboardSnapshot> {
   const today = startOfToday();
   const todayEnd = endOfToday();
   const periodMonth = FIXED_EXPENSE_DEMO_MONTH;

@@ -1,3 +1,6 @@
+import { cache } from "react";
+
+import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
 import { MODULE_IDS, getModuleConfig, type ModuleId } from "@/lib/modules";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "./session";
@@ -23,27 +26,37 @@ const emptyPermission = (): ModulePermission => ({
   approve: false,
 });
 
-export async function getRolePermissions(roleId: string): Promise<PermissionMap> {
-  const rows = await prisma.permission.findMany({ where: { roleId } });
+async function loadRolePermissions(roleId: string): Promise<PermissionMap> {
+  return cachedQuery(
+    ["role-permissions", roleId],
+    async () => {
+      const rows = await prisma.permission.findMany({ where: { roleId } });
 
-  const map = Object.fromEntries(
-    MODULE_IDS.map((id) => [id, emptyPermission()]),
-  ) as PermissionMap;
+      const map = Object.fromEntries(
+        MODULE_IDS.map((id) => [id, emptyPermission()]),
+      ) as PermissionMap;
 
-  for (const row of rows) {
-    const moduleId = row.module as ModuleId;
-    if (!MODULE_IDS.includes(moduleId)) continue;
-    map[moduleId] = {
-      view: row.canView,
-      create: row.canCreate,
-      edit: row.canEdit,
-      delete: row.canDelete,
-      approve: row.canApprove,
-    };
-  }
+      for (const row of rows) {
+        const moduleId = row.module as ModuleId;
+        if (!MODULE_IDS.includes(moduleId)) continue;
+        map[moduleId] = {
+          view: row.canView,
+          create: row.canCreate,
+          edit: row.canEdit,
+          delete: row.canDelete,
+          approve: row.canApprove,
+        };
+      }
 
-  return map;
+      return map;
+    },
+    REVALIDATE.permissions,
+    ["permissions"],
+  );
 }
+
+/** İstek içi tekilleştirme + kısa süreli sunucu önbelleği */
+export const getRolePermissions = cache(loadRolePermissions);
 
 export function hasPermission(
   permissions: PermissionMap,

@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
+import { cachedQuery, REVALIDATE, todayCacheKey } from "@/lib/cache/server";
+
 import { productionOrderInclude } from "./create-order";
 import { initLineDailyTargets, syncLineStatuses } from "./track";
 import { loadProductionSettings } from "./settings";
@@ -19,6 +21,15 @@ type LiveOrderRow = Prisma.ProductionOrderGetPayload<{
 }>;
 
 export async function getLiveProductionBoard(db: Db) {
+  return cachedQuery(
+    ["live-production-board", todayCacheKey()],
+    () => buildLiveProductionBoard(db),
+    REVALIDATE.live,
+    ["production", "dashboard"],
+  );
+}
+
+async function buildLiveProductionBoard(db: Db) {
   await initLineDailyTargets(db);
   await syncLineStatuses(db);
 

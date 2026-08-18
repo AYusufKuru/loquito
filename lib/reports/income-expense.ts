@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
+import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
 import { getMonthlyOverheadPool } from "@/lib/finance/overhead";
 import { ACTIVE_ORDER_STATUSES } from "@/lib/orders/constants";
 import { analyzeOrderProduction } from "@/lib/orders/production-analysis";
@@ -12,6 +13,18 @@ import { buildScrapCostTotal } from "./scrap";
 type Db = PrismaClient;
 
 export async function buildIncomeExpenseReport(
+  db: Db,
+  range: DateRange,
+): Promise<IncomeExpenseReport> {
+  return cachedQuery(
+    ["income-expense", range.label, range.start.toISOString(), range.end.toISOString()],
+    () => buildIncomeExpenseReportUncached(db, range),
+    REVALIDATE.reports,
+    ["reports"],
+  );
+}
+
+async function buildIncomeExpenseReportUncached(
   db: Db,
   range: DateRange,
 ): Promise<IncomeExpenseReport> {

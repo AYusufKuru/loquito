@@ -4,7 +4,7 @@ import { getDashboardSnapshot } from "@/lib/dashboard/service";
 import { t } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function DashboardPage() {
   await requireModuleAccess("dashboard");

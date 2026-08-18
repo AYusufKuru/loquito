@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 import { prisma } from "@/lib/prisma";
 
@@ -15,14 +16,7 @@ async function withDbTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
   ]);
 }
 
-/**
- * Oturumu çözer ve kullanıcıyı veritabanından tazeler.
- *
- * Token 7 gün geçerli olduğu için içindeki rol ve yetki bayraklarına
- * güvenilemez: yönetici rolü değiştirdiğinde ya da kullanıcıyı pasife
- * aldığında değişikliğin anında etkili olması gerekir.
- */
-export async function getSession(): Promise<SessionPayload | null> {
+async function resolveSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   if (!token) return null;
@@ -55,6 +49,12 @@ export async function getSession(): Promise<SessionPayload | null> {
     return null;
   }
 }
+
+/**
+ * Oturumu çözer ve kullanıcıyı veritabanından tazeler.
+ * React cache() ile layout + sayfa aynı istekte tek sorgu atar.
+ */
+export const getSession = cache(resolveSession);
 
 export async function requireSession(): Promise<SessionPayload> {
   const session = await getSession();

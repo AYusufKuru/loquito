@@ -3,40 +3,18 @@ import {
   hasPermission,
   requireModuleAccess,
 } from "@/lib/auth/permissions";
+import { getProductionPageData } from "@/lib/data/production-page";
 import { t } from "@/lib/i18n";
-import { productionOrderInclude } from "@/lib/production/create-order";
 import { serializeProductionOrder } from "@/lib/production/serialize";
-import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 20;
 
 export default async function ProductionPage() {
   const { permissions } = await requireModuleAccess("production");
 
   const canEdit = hasPermission(permissions, "production", "edit");
 
-  const [planOrders, productionOrders, lines] = await Promise.all([
-    prisma.order.findMany({
-      where: {
-        status: {
-          in: ["approved", "in_production", "ready_ship", "pending_approval"],
-        },
-      },
-      include: { customer: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
-    prisma.productionOrder.findMany({
-      include: productionOrderInclude,
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-    prisma.line.findMany({
-      where: { isActive: true },
-      orderBy: { code: "asc" },
-      select: { id: true, code: true, name: true, type: true },
-    }),
-  ]);
+  const { planOrders, productionOrders, lines } = await getProductionPageData();
 
   const labels: Record<string, string> = {
     title: t("modules.production.title"),

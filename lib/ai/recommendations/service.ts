@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 
+import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
 import {
   FIXED_EXPENSE_DEMO_MONTH,
   parsePeriodMonth,
@@ -592,6 +593,19 @@ async function buildAnomalyRecommendations(
 }
 
 export async function buildAiRecommendations(
+  db: Db,
+  options?: { limit?: number },
+): Promise<AiRecommendationsReport> {
+  const limitKey = options?.limit != null ? String(options.limit) : "all";
+  return cachedQuery(
+    ["ai-recommendations", limitKey],
+    () => buildAiRecommendationsUncached(db, options),
+    REVALIDATE.reports,
+    ["ai", "dashboard"],
+  );
+}
+
+async function buildAiRecommendationsUncached(
   db: Db,
   options?: { limit?: number },
 ): Promise<AiRecommendationsReport> {

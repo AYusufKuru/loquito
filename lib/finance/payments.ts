@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { recordAudit } from "@/lib/audit/service";
+import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
 
 import {
   computeDueDate,
@@ -77,6 +78,24 @@ export async function syncOrderPaymentExpectations(db: Db): Promise<void> {
 }
 
 export async function listOrderPayments(
+  db: Db,
+  filters?: { overdueOnly?: boolean; customerId?: string },
+): Promise<OrderPaymentRow[]> {
+  const filterKey = filters?.customerId
+    ? `customer:${filters.customerId}`
+    : filters?.overdueOnly
+      ? "overdue"
+      : "all";
+
+  return cachedQuery(
+    ["order-payments", filterKey],
+    () => listOrderPaymentsUncached(db, filters),
+    REVALIDATE.dashboard,
+    ["payments", "dashboard"],
+  );
+}
+
+async function listOrderPaymentsUncached(
   db: Db,
   filters?: { overdueOnly?: boolean; customerId?: string },
 ): Promise<OrderPaymentRow[]> {

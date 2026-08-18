@@ -93,6 +93,8 @@ export async function advanceProductionStage(db: Db, productionOrderId: string) 
     });
   }
 
+  await syncLineStatuses(db);
+
   return db.productionOrder.update({
     where: { id: productionOrderId },
     data: {

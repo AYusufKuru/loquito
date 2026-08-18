@@ -105,6 +105,7 @@ interface ProductionLiveBoardProps {
 export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProps) {
   const [board, setBoard] = useState<LiveBoard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const {
     clearErrors,
     clearFieldError,
@@ -123,11 +124,9 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
   const [editUnits, setEditUnits] = useState("");
   const [editOperator, setEditOperator] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    clearErrors();
+  const refreshBoard = useCallback(async () => {
     try {
-      const res = await fetch("/api/production/live");
+      const res = await fetch("/api/production/live", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         showError(data.error || labels.liveError);
@@ -136,10 +135,18 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
       setBoard(data.board);
     } catch {
       showError(labels.connectionError);
+    }
+  }, [labels.connectionError, labels.liveError, showError]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    clearErrors();
+    try {
+      await refreshBoard();
     } finally {
       setLoading(false);
     }
-  }, [clearErrors, labels.connectionError, labels.liveError, showError]);
+  }, [clearErrors, refreshBoard]);
 
   useEffect(() => {
     load();
@@ -166,25 +173,39 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
     orderId: string,
     payload: Record<string, unknown>,
   ) {
-    const res = await fetch(`/api/production/orders/${orderId}/track`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || labels.updateError);
-    await load();
+    if (actionLoading) return;
+    setActionLoading(true);
+    clearErrors();
+    try {
+      const res = await fetch(`/api/production/orders/${orderId}/track`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || labels.updateError);
+      await refreshBoard();
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function postTrack(orderId: string, payload: Record<string, unknown>) {
-    const res = await fetch(`/api/production/orders/${orderId}/track`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || labels.updateError);
-    await load();
+    if (actionLoading) return;
+    setActionLoading(true);
+    clearErrors();
+    try {
+      const res = await fetch(`/api/production/orders/${orderId}/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || labels.updateError);
+      await refreshBoard();
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function handleDowntime(lineId: string, action: "start" | "end") {
@@ -473,15 +494,18 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
+                    disabled={actionLoading}
                     onClick={() =>
                       patchTrack(selectedOrder.id, { action: "advance_stage" }).catch((err) =>
                         showError(err.message),
                       )
                     }
                   >
-                    {next
-                      ? labels.advanceTo.replace("{stage}", STAGE_LABELS[next])
-                      : labels.advanceStage}
+                    {actionLoading
+                      ? labels.loading
+                      : next
+                        ? labels.advanceTo.replace("{stage}", STAGE_LABELS[next])
+                        : labels.advanceStage}
                   </Button>
                 </div>
               );

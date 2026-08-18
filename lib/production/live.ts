@@ -3,7 +3,6 @@ import type { Prisma } from "@prisma/client";
 import { cachedQuery, REVALIDATE, todayCacheKey } from "@/lib/cache/server";
 
 import { productionOrderInclude } from "./create-order";
-import { initLineDailyTargets, syncLineStatuses } from "./track";
 import { loadProductionSettings } from "./settings";
 import {
   CUTTING_STAGES,
@@ -29,10 +28,12 @@ export async function getLiveProductionBoard(db: Db) {
   );
 }
 
-async function buildLiveProductionBoard(db: Db) {
-  await initLineDailyTargets(db);
-  await syncLineStatuses(db);
+/** Canlı takip API — önbelleksiz, anlık veri */
+export async function getLiveProductionBoardFresh(db: Db) {
+  return buildLiveProductionBoard(db);
+}
 
+async function buildLiveProductionBoard(db: Db) {
   const lines = await db.line.findMany({
     where: { isActive: true },
     orderBy: { code: "asc" },

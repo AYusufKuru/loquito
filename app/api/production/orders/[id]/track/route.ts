@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 
 import { requireApiPermission } from "@/lib/auth/api-auth";
 import {
@@ -23,6 +24,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     if (body.action === "advance_stage") {
       const order = await advanceProductionStage(prisma, id);
+      revalidateTag("production");
       return NextResponse.json({ order: serializeProductionOrder(order) });
     }
 
@@ -39,6 +41,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         typeof body.operatorName === "string" ? body.operatorName : undefined,
     });
 
+    revalidateTag("production");
     return NextResponse.json({ order: serializeProductionOrder(order) });
   } catch (error) {
     const message =
@@ -63,6 +66,7 @@ export async function POST(request: Request, context: RouteContext) {
         typeof body.reason === "string" ? body.reason : null,
         typeof body.notes === "string" ? body.notes : null,
       );
+      revalidateTag("production");
       return NextResponse.json({ order: serializeProductionOrder(order) });
     }
 
@@ -79,6 +83,7 @@ export async function POST(request: Request, context: RouteContext) {
         notes: typeof body.notes === "string" ? body.notes : null,
         checkedBy: auth.session?.name ?? null,
       });
+      revalidateTag("production");
       return NextResponse.json({ order: serializeProductionOrder(order) });
     }
 

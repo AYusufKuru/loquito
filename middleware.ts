@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { AUTH_API_PATHS, AUTH_COOKIE_NAME, PUBLIC_PATHS } from "@/lib/auth/constants";
+import { AUTH_API_PATHS, AUTH_COOKIE_NAME, PUBLIC_API_PATHS, PUBLIC_PATHS } from "@/lib/auth/constants";
 import { verifySessionToken } from "@/lib/auth/jwt";
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -23,7 +23,8 @@ export async function middleware(request: NextRequest) {
 
   if (
     PUBLIC_PATHS.some((p) => pathname === p) ||
-    AUTH_API_PATHS.some((p) => pathname === p)
+    AUTH_API_PATHS.some((p) => pathname === p) ||
+    PUBLIC_API_PATHS.some((p) => pathname === p)
   ) {
     return withSecurityHeaders(NextResponse.next());
   }

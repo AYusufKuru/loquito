@@ -1,0 +1,191 @@
+export const MODULES = [
+  "dashboard",
+  "recipes",
+  "production",
+  "orders",
+  "stock",
+  "reports",
+  "ai",
+  "hr",
+  "settings",
+  "finance",
+  "shipments",
+  "assets",
+] as const;
+
+export const FLAVORS = [
+  { code: "ACA", namePt: "Açaí", nameTr: "Açai", collection: "classic", sortOrder: 1 },
+  { code: "LIM", namePt: "Limão", nameTr: "Limon", collection: "classic", sortOrder: 2 },
+  { code: "CAF", namePt: "Café Amendoim", nameTr: "Kahve–Yer Fıstığı", collection: "classic", sortOrder: 3 },
+  { code: "MRQ", namePt: "Maracujá", nameTr: "Çarkıfelek", collection: "classic", sortOrder: 4 },
+  { code: "GRV", namePt: "Graviola", nameTr: "Graviola", collection: "amazon", sortOrder: 5 },
+  { code: "GOI", namePt: "Rosa Goiaba", nameTr: "Guava", collection: "amazon", sortOrder: 6 },
+  { code: "CPC", namePt: "Cupuaçu", nameTr: "Cupuaçu", collection: "amazon", sortOrder: 7 },
+  { code: "ABX", namePt: "Abacaxi", nameTr: "Ananas", collection: "amazon", sortOrder: 8 },
+  { code: "MNG", namePt: "Manga", nameTr: "Mango", collection: "amazon", sortOrder: 9 },
+  { code: "MIX", namePt: "Misto", nameTr: "Karışık", collection: "mix", sortOrder: 10 },
+] as const;
+
+export const PACKAGINGS = [
+  { code: "85G", label: "85 g Cartucho", netWeightG: 85, unitsPerBox: 50, isActive: true, sortOrder: 1 },
+  { code: "250G", label: "250 g", netWeightG: 250, unitsPerBox: 40, isActive: true, sortOrder: 2 },
+  { code: "500G", label: "500 g", netWeightG: 500, unitsPerBox: 0, isActive: false, sortOrder: 3 },
+  { code: "1KG", label: "1 kg", netWeightG: 1000, unitsPerBox: 0, isActive: false, sortOrder: 4 },
+  { code: "80G", label: "80 g Bomonti", netWeightG: 80, unitsPerBox: 25, isActive: true, sortOrder: 5 },
+] as const;
+
+export const SUPPLIERS = [
+  { name: "Pitney Embalagens", notes: "Kutu / Koli" },
+  { name: "Artevac Vacuum Forming", notes: "Beşik" },
+  { name: "PBB Comercio De Açucar", notes: "Şeker" },
+  { name: "Amido Nevadas", notes: "Nişasta" },
+  { name: "Bella Quimicos", notes: "Limon tuzu" },
+  { name: "De Marchi", notes: "Meyve" },
+  { name: "Miura Grafica Industria", notes: "Jelatin" },
+  { name: "Cetro", notes: "Makine sarf malzemesi" },
+  { name: "Pinho Nuts", notes: "Fıstık / Kaju" },
+  { name: "Callebaut Brazil", notes: "Çikolata" },
+] as const;
+
+export const SALES_REPS = [
+  { name: "Antônio", company: "Antônio Rodrigues Representações", region: "São Paulo - SP", cep: "02375-100" },
+  { name: "Dartagnan Bueno", company: "Dartagnan Bueno Representações", region: "Sapucaia do Sul - RS", cep: "93219-083" },
+  { name: "Elcio", company: "Elcio Salvador e Cia LTDA", region: "Maringá - PR", cep: "87005-100" },
+  { name: "Paulo H. Imme", company: "MLP Representações", region: "Tijucas - SC", cep: "88201-160" },
+  { name: "Sr. Rui", company: "RUIVENDE", region: "Curitiba - PR" },
+  { name: "Rogério", company: "Saviczki Representação Comercial LTDA", region: "Guapimirim - RJ", cep: "25945-412" },
+] as const;
+
+export const CUSTOMERS = [
+  "Avolta Ag \"Carrefour & Dufry\"",
+  "Pastorinho Super Mercados",
+  "Bergamini",
+  "Hippo Hiper Mercados",
+  "Vrs Brasil",
+  "Grupo MundialMIX",
+  "Fort Atacadista",
+  "Pandor",
+  "MESCHKE",
+  "Muffato",
+  "Gigante",
+  "YPO",
+  "Italo",
+  "Angeloni",
+  "Pão De Açúcar",
+  "Assai Atacadista",
+  "Super Adega",
+  "Plurix",
+  "Zaffari",
+  "Koch Hipermercado",
+  "Mart Minas",
+  "Grupo Pereira",
+  "Cencosud Brasil",
+  "DMA Distribuidora",
+  "WGN MASCAVO LTDA",
+  "ADANA COMIDA TURCA LTDA",
+  "HUSSEIN IBRAHIM IBRAHIM CIA LTDA",
+  "SOCIEDADE BENEFICIENTE MUCULMANA DO PARANA",
+  "CEREAIS E ESPECIARIAS SISSI LTDA",
+  "LE LIBAN COMERCIO DE ALIMENTOS LTDA",
+  "EDIP CANSIZ",
+  "MLP",
+  "CRUZILIA COMERCIO E IMPORTACAO GENEROS ALIMENTOS LTDA",
+  "DISTRIBUIRORA DE PRODUTOS ALIMENTICIOS TIO ALI LTDA",
+  "FLAVIA MOTTA DE ANDRADE",
+  "SEMPREBOM COMERCIO DE PRODUTOS NATURAIS LTDA",
+  "MERCANTIL ANGELO LTDA",
+  "SAYER M ALOTAIBI",
+  "M&G COMERCIO DE PRODUTOS ALIMENTICIOS LTDA",
+  "LEBANON MARKET CENTER LTDA",
+  "SALAH UD DIN ALE CHARKIE LTDA",
+  "OG CAFE LTDA",
+  "EMPORIO SYRIO LTDA",
+] as const;
+
+export const EMPLOYEES = [
+  { name: "EMILY KAUANE ALMEIDA DA SILVA", role: "Paketleme", salary: 200000 },
+  { name: "ANDREA VARGAS MARCON", role: "Paketleme", salary: 200000 },
+  { name: "DANIELE APARECIDA GABRIEL DE AZEVEDO", role: "İdari Kısım", salary: 275000 },
+  { name: "FERNANDA CARDOSO DE BARROS DOS SANTOS", role: "Paketleme", salary: 200000 },
+  { name: "FRANCIELE ROSA DOS SANTOS", role: "Kesim", salary: 200000 },
+  { name: "NATHALY DO NASCIMENTO DA SILVA", role: "Kesim", salary: 200000 },
+  { name: "PATRICIA ANDREA VITORIA", role: "Dizim", salary: 200000 },
+  { name: "ROBINSON GABRIEL DE AZEVEDO", role: "Genel İmalat", salary: 350000 },
+  { name: "SARA ALESSANDRA VIEIRA SOUZA", role: "Kesim", salary: 200000 },
+  { name: "SOELI TERESINHA ROSA DE VARGAS", role: "Dizim", salary: 200000 },
+  { name: "WILLIAN MANOEL MINEIRO DE OLIVEIRA", role: "Pişirme Yardımcısı", salary: 300000 },
+  { name: "ABDULKADIR MARAŞLI", role: "İdari Kısım Yetkilisi", salary: 500000 },
+  { name: "MUHAMMED ALİ KALENDER", role: "İmalat Yetkilisi", salary: 500000 },
+  { name: "İBRAHİM BAKIRHAN", role: "Genel Sorumlu", salary: 500000 },
+] as const;
+
+export const FIXED_EXPENSES = [
+  { name: "Maaşlar", amount: 4025000, category: "personel" },
+  { name: "Fabrika Kira", amount: 900000, category: "kira" },
+  { name: "Personel Ev Kira", amount: 250000, category: "kira" },
+  { name: "Fabrika Elektrik", amount: 950000, category: "enerji" },
+  { name: "Personel Ev Elektrik", amount: 75000, category: "enerji" },
+  { name: "Fabrika Su", amount: 350000, category: "enerji" },
+  { name: "Personel Ev Su", amount: 15000, category: "enerji" },
+  { name: "Fabrika İnternet", amount: 35000, category: "iletişim" },
+  { name: "Personel Ev İnternet", amount: 35000, category: "iletişim" },
+  { name: "Fabrika Kiralık Araç", amount: 450000, category: "araç" },
+  { name: "Fabrika Araç Yakıt", amount: 250000, category: "araç" },
+  { name: "Genel Araç Yakıt", amount: 750000, category: "araç" },
+  { name: "Muhasebe", amount: 200000, category: "hizmet" },
+  { name: "Sigorta / Emeklilik Fonu", amount: 441000, category: "personel" },
+  { name: "Zorunlu Sağlık Ödemesi", amount: 1550000, category: "personel" },
+] as const;
+
+/** Demo sabit gider dönemi (Adım 21) */
+export const FIXED_EXPENSE_PERIOD_MONTH = "2026-02";
+
+export const ASSETS = [
+  { name: "Toplantı Masası", quantity: 1, category: "ofis" },
+  { name: "Sandalye", quantity: 10, category: "ofis" },
+  { name: "Koltuk", quantity: 4, category: "ofis" },
+  { name: "Masa", quantity: 2, category: "ofis" },
+  { name: "Evrak Dolabı", quantity: 2, category: "ofis" },
+  { name: "Bilgisayar", quantity: 2, category: "ofis" },
+  { name: "Yazıcı", quantity: 1, category: "ofis" },
+  { name: "Lokum Kazanı", quantity: 3, category: "üretim" },
+  { name: "Karıştırma Mikseri", quantity: 1, category: "üretim" },
+  { name: "Kesim Makinesi", quantity: 1, category: "üretim" },
+  { name: "Pudra Şekeri Öğütücüsü", quantity: 1, category: "üretim" },
+  { name: "Buzdolabı", quantity: 1, category: "üretim" },
+  { name: "Çalışma Tezgahı", quantity: 1, category: "üretim" },
+  { name: "Yıkama Tezgahı", quantity: 1, category: "üretim" },
+  { name: "Krom Raf", quantity: 1, category: "depo" },
+  { name: "Taşıma Arabası", quantity: 2, category: "depo" },
+  { name: "Kantar", quantity: 1, category: "depo" },
+  { name: "350kg Kapasiteli Tekerlekli Depo", quantity: 2, category: "depo" },
+  { name: "Mermer Masa", quantity: 3, category: "üretim" },
+  { name: "Ambalaj Makinesi", quantity: 2, category: "üretim" },
+  { name: "Isı Tüneli", quantity: 1, category: "üretim" },
+  { name: "90 kVA Transformatör", quantity: 1, category: "altyapı" },
+  { name: "Palet Taşıyıcı", quantity: 1, category: "depo" },
+  { name: "Tabla", quantity: 120, category: "üretim" },
+  { name: "Tabla Arabası", quantity: 5, category: "üretim" },
+  { name: "Klima", quantity: 1, category: "altyapı" },
+  { name: "Kova", quantity: 20, category: "üretim" },
+  { name: "Yemek Masası", quantity: 1, category: "ofis" },
+  { name: "Vestiyer Dolabı", quantity: 1, category: "ofis" },
+  { name: "Palet", quantity: 30, category: "depo" },
+] as const;
+
+/** Mamul stok — lezzet kodu → { 250G: adet, 85G: adet } */
+export const FINISHED_STOCK: Record<string, { "250G"?: number; "85G"?: number }> = {
+  CPC: { "250G": 75, "85G": 167 },
+  ABX: { "250G": 80, "85G": 215 },
+  CAF: { "250G": 82, "85G": 240 },
+  LIM: { "250G": 91, "85G": 221 },
+  MRQ: { "250G": 82, "85G": 118 },
+  ACA: { "250G": 113, "85G": 215 },
+  MIX: { "250G": 158 },
+  GRV: { "250G": 310, "85G": 510 },
+  GOI: { "250G": 38, "85G": 95 },
+};
+
+import { DEFAULT_FACTORY_SETTINGS } from "../lib/factory/defaults";
+
+export const FACTORY_SETTINGS = DEFAULT_FACTORY_SETTINGS;

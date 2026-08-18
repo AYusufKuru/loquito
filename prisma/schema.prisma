@@ -1,0 +1,916 @@
+// Loquito — Prisma şeması
+// Not: enum kullanılmıyor (SQLite → PostgreSQL geçişi için durumlar string)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Kimlik & Yetki ───────────────────────────────────────────────
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  isSystem    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  users       User[]
+  permissions Permission[]
+}
+
+model Permission {
+  id        String  @id @default(cuid())
+  roleId    String
+  module    String
+  canView   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canEdit   Boolean @default(false)
+  canDelete Boolean @default(false)
+  canApprove Boolean @default(false)
+  role      Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, module])
+  @@index([roleId])
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  passwordHash      String
+  roleId            String
+  isActive          Boolean   @default(true)
+  canSetPrice       Boolean   @default(false)
+  canApproveOrder   Boolean   @default(false)
+  canApproveFinance Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  role              Role      @relation(fields: [roleId], references: [id])
+  auditLogs         AuditLog[]
+
+  @@index([roleId])
+}
+
+// ─── Fabrika Ayarları & Hatlar ────────────────────────────────────
+
+model FactorySetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  label     String?
+  category  String   @default("general")
+  updatedAt DateTime @updatedAt
+}
+
+model Line {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  name        String
+  type        String            // cooker | cutting | packaging
+  capacity    Float?
+  dailyTargetUnits   Int               @default(0)
+  dailyProducedUnits Int               @default(0)
+  teamSize    Int               @default(0)
+  status      String            @default("idle") // idle | running | maintenance | downtime
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  productionOrders ProductionOrder[]
+  downtimes   Downtime[]
+}
+
+// ─── Ürün Kataloğu ────────────────────────────────────────────────
+
+model Flavor {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  namePt       String
+  nameTr       String?
+  collection   String?   // classic | amazon | mix
+  isActive     Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
+  recipes      Recipe[]
+  finishedGoods FinishedGoodsStock[]
+  finishedGoodsReservations FinishedGoodsReservation[]
+}
+
+model Packaging {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  label        String
+  netWeightG   Int
+  unitsPerBox  Int       @default(0)
+  isActive     Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
+  recipeItems  RecipeItem[]
+  finishedGoods FinishedGoodsStock[]
+  finishedGoodsReservations FinishedGoodsReservation[]
+}
+
+model Product {
+  id           String               @id @default(cuid())
+  sku          String               @unique
+  name         String
+  flavorId     String?
+  packagingId  String?
+  productType  String               @default("normal") // normal | cobertura | bomonti | custom
+  customerId   String?
+  recipeId     String?
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  flavor       Flavor?              @relation(fields: [flavorId], references: [id])
+  packaging    Packaging?           @relation(fields: [packagingId], references: [id])
+  customer     Customer?            @relation(fields: [customerId], references: [id])
+  recipe       Recipe?              @relation(fields: [recipeId], references: [id])
+  channelCodes ProductChannelCode[]
+  priceListItems PriceListItem[]
+  customerPrices CustomerPrice[]
+  priceTiers   PriceTier[]
+  orderItems   OrderItem[]
+  finishedGoods FinishedGoodsStock[]
+  productionOrders ProductionOrder[]
+  shipmentItems ShipmentItem[]
+
+  @@index([flavorId])
+  @@index([packagingId])
+  @@index([customerId])
+}
+
+model ProductChannelCode {
+  id         String   @id @default(cuid())
+  productId  String
+  customerId String?
+  channel    String   // retail | corporate | portal
+  externalSku String
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  @@unique([productId, channel, customerId])
+  @@index([externalSku])
+}
+
+// ─── Tedarik & Malzeme ────────────────────────────────────────────
+
+model Supplier {
+  id        String     @id @default(cuid())
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  notes     String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  materials Material[]
+  purchaseOrders PurchaseOrder[]
+  purchaseRequests PurchaseRequest[]
+}
+
+model Material {
+  id              String          @id @default(cuid())
+  code            String          @unique
+  name            String
+  category        String          // raw | packaging
+  subcategory     String?         // box | cradle | ship_box | gelatin | sugar, etc.
+  unit            String          // kg | g | L | adet | m
+  unitPriceCents  Int             @default(0)
+  currentQty      Float           @default(0)
+  criticalLevel   Float           @default(0)
+  flavorId        String?
+  packagingId     String?
+  supplierId      String?
+  isDailySupply   Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  supplier        Supplier?       @relation(fields: [supplierId], references: [id])
+  lots            MaterialLot[]
+  stockMovements  StockMovement[]
+  recipeItems     RecipeItem[]
+  productionConsumptions ProductionConsumption[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@index([category])
+  @@index([flavorId])
+  @@index([packagingId])
+}
+
+model MaterialLot {
+  id              String          @id @default(cuid())
+  materialId      String
+  internalLotNo   String
+  supplierLotNo   String?
+  quantity        Float
+  expiryDate      DateTime?
+  status          String          @default("quarantine") // quarantine | released | blocked | destroyed | rework
+  receivedAt      DateTime        @default(now())
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  material        Material        @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  stockMovements  StockMovement[]
+  productionConsumptions ProductionConsumption[]
+
+  @@index([materialId])
+  @@index([status])
+}
+
+model StockMovement {
+  id           String       @id @default(cuid())
+  materialId   String
+  lotId        String?
+  type         String       // in | out | scrap | adjustment | reserve | release
+  quantity     Float
+  referenceType String?     // order | production | purchase | manual
+  referenceId  String?
+  notes        String?
+  createdAt    DateTime     @default(now())
+  material     Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  lot          MaterialLot? @relation(fields: [lotId], references: [id])
+
+  @@index([materialId])
+  @@index([createdAt])
+}
+
+model PurchaseOrder {
+  id            String   @id @default(cuid())
+  orderNo       String   @unique
+  supplierId    String
+  orderDate     DateTime @default(now())
+  deliveryDate  DateTime?
+  status        String   @default("pending")
+  totalCents    Int      @default(0)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  supplier      Supplier @relation(fields: [supplierId], references: [id])
+  items         PurchaseOrderItem[]
+
+  @@index([supplierId])
+  @@index([status])
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  materialId      String
+  quantity        Float
+  unit            String
+  unitPriceCents  Int           @default(0)
+  receivedQty     Float         @default(0)
+  notes           String?
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  material        Material      @relation(fields: [materialId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([materialId])
+}
+
+// ─── Reçeteler ────────────────────────────────────────────────────
+
+model Recipe {
+  id           String       @id @default(cuid())
+  code         String       @unique
+  name         String
+  flavorId     String?
+  customerId   String?
+  yieldKg      Float        @default(70)
+  scrapPercent Float        @default(0)
+  version      Int          @default(1)
+  isActive     Boolean      @default(true)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  flavor       Flavor?      @relation(fields: [flavorId], references: [id])
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  items        RecipeItem[]
+  products     Product[]
+  productionOrders ProductionOrder[]
+
+  @@index([flavorId])
+}
+
+model RecipeItem {
+  id           String     @id @default(cuid())
+  recipeId     String
+  materialId   String?
+  itemType     String     // raw | packaging
+  packagingId  String?
+  quantity     Float
+  unit         String
+  notes        String?
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  material     Material?  @relation(fields: [materialId], references: [id])
+  packaging    Packaging? @relation(fields: [packagingId], references: [id])
+
+  @@index([recipeId])
+}
+
+// ─── Fiyatlandırma ────────────────────────────────────────────────
+
+model PriceList {
+  id          String          @id @default(cuid())
+  code        String          @unique
+  name        String
+  channel     String?
+  region      String?
+  validFrom   DateTime?
+  validTo     DateTime?
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       PriceListItem[]
+  customers   Customer[]
+}
+
+model PriceListItem {
+  id              String    @id @default(cuid())
+  priceListId     String
+  productId       String
+  boxPriceCents   Int       @default(0)
+  unitPriceCents  Int       @default(0)
+  priceList       PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product         Product   @relation(fields: [productId], references: [id])
+
+  @@unique([priceListId, productId])
+}
+
+model CustomerPrice {
+  id              String    @id @default(cuid())
+  customerId      String
+  productId       String
+  boxPriceCents   Int?
+  unitPriceCents  Int?
+  validFrom       DateTime?
+  validTo         DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product         Product   @relation(fields: [productId], references: [id])
+
+  @@index([customerId])
+}
+
+model PriceTier {
+  id              String   @id @default(cuid())
+  customerId      String
+  productId       String?
+  thresholdQty    Float
+  thresholdUnit   String   @default("box") // box | unit
+  discountPercent Float?
+  boxPriceCents   Int?
+  unitPriceCents  Int?
+  notes           String?
+  createdAt       DateTime @default(now())
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product         Product? @relation(fields: [productId], references: [id])
+
+  @@index([customerId])
+}
+
+// ─── Müşteri & Satış ──────────────────────────────────────────────
+
+model SalesRep {
+  id        String     @id @default(cuid())
+  name      String
+  company   String?
+  region    String?
+  address   String?
+  cep       String?
+  phone     String?
+  email     String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  customers Customer[]
+}
+
+model Customer {
+  id            String              @id @default(cuid())
+  name          String
+  cnpj          String?
+  region        String?
+  salesRepId    String?
+  priceListId   String?
+  paymentTerms  String?
+  freightType   String?             // CIF | FOB
+  address       String?
+  deliveryAddress String?
+  billingAddress  String?
+  phone         String?
+  email         String?
+  contactName   String?
+  isActive      Boolean             @default(true)
+  balanceCents  Int                 @default(0)
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  salesRep      SalesRep?           @relation(fields: [salesRepId], references: [id])
+  priceList     PriceList?          @relation(fields: [priceListId], references: [id])
+  products      Product[]
+  recipes       Recipe[]
+  channelCodes  ProductChannelCode[]
+  customerPrices CustomerPrice[]
+  priceTiers    PriceTier[]
+  orders        Order[]
+  payments      Payment[]
+  shipments     Shipment[]
+
+  @@index([name])
+}
+
+// ─── Sipariş ──────────────────────────────────────────────────────
+
+model Order {
+  id              String          @id @default(cuid())
+  orderNo         String          @unique
+  customerId      String
+  status          String          @default("draft")
+  channel         String?         // retail_form | proposal | portal
+  orderDate       DateTime        @default(now())
+  deliveryDate    DateTime?
+  paymentTerms    String?
+  freightType     String?
+  totalCents      Int             @default(0)
+  discountCents   Int             @default(0)
+  freightCents    Int             @default(0)
+  notes           String?
+  approvedAt      DateTime?
+  approvedById    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  customer        Customer        @relation(fields: [customerId], references: [id])
+  items           OrderItem[]
+  documents       OrderDocument[]
+  productionOrders ProductionOrder[]
+  payments        Payment[]
+  shipments       Shipment[]
+  finishedGoodsReservations FinishedGoodsReservation[]
+  gmailMessages             GmailInboxMessage[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  productId       String
+  quantityBoxes   Float    @default(0)
+  quantityUnits   Int      @default(0)
+  shippedBoxes    Float    @default(0)
+  shippedUnits    Int      @default(0)
+  unitPriceCents  Int      @default(0)
+  boxPriceCents   Int      @default(0)
+  discountPercent Float    @default(0)
+  totalCents      Int      @default(0)
+  notes           String?
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id])
+  finishedGoodsReservations FinishedGoodsReservation[]
+  shipmentItems   ShipmentItem[]
+
+  @@index([orderId])
+}
+
+model OrderDocument {
+  id        String   @id @default(cuid())
+  orderId   String
+  fileName  String
+  filePath  String
+  fileType  String?
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ─── Üretim ───────────────────────────────────────────────────────
+
+model ProductionOrder {
+  id              String                @id @default(cuid())
+  productionNo    String                @unique
+  lotNo           String
+  orderId         String?
+  productId       String?
+  recipeId        String
+  lineId          String?
+  status          String                @default("planned")
+  plannedStart    DateTime?
+  plannedEnd      DateTime?
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  plannedKg       Float                 @default(0)
+  producedKg      Float                 @default(0)
+  producedUnits   Int                   @default(0)
+  scrapKg         Float                 @default(0)
+  yieldPercent    Float?
+  qualityStatus   String?
+  currentStage    String                @default("preparation")
+  currentKg       Float                 @default(0)
+  stageProgressPercent Float             @default(0)
+  shift           String?
+  operatorName    String?
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  order           Order?                @relation(fields: [orderId], references: [id])
+  product         Product?              @relation(fields: [productId], references: [id])
+  recipe          Recipe                @relation(fields: [recipeId], references: [id])
+  line            Line?                 @relation(fields: [lineId], references: [id])
+  consumptions    ProductionConsumption[]
+  qualityChecks   QualityCheck[]
+  downtimes       Downtime[]
+  scrapRecords    ScrapRecord[]
+  workAssignments WorkAssignment[]
+
+  @@index([status])
+  @@index([orderId])
+}
+
+model ProductionConsumption {
+  id                String          @id @default(cuid())
+  productionOrderId String
+  materialId        String
+  lotId             String?
+  plannedQty        Float           @default(0)
+  actualQty         Float           @default(0)
+  unit              String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  material          Material        @relation(fields: [materialId], references: [id])
+  lot               MaterialLot?    @relation(fields: [lotId], references: [id])
+
+  @@index([productionOrderId])
+}
+
+model QualityCheck {
+  id                String          @id @default(cuid())
+  productionOrderId String
+  stage             String
+  parameter         String?
+  targetValue       String?
+  actualValue       String?
+  unit              String?
+  checkedAt         DateTime?
+  checkedBy         String?
+  compliance        String?
+  correctiveAction  String?
+  notes             String?
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+}
+
+model Downtime {
+  id                String          @id @default(cuid())
+  lineId            String
+  productionOrderId String?
+  reason            String
+  startedAt         DateTime
+  endedAt           DateTime?
+  notes             String?
+  line              Line            @relation(fields: [lineId], references: [id])
+  productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
+}
+
+model ScrapRecord {
+  id                String          @id @default(cuid())
+  productionOrderId String
+  quantityKg        Float
+  reason            String?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+}
+
+model FinishedGoodsStock {
+  id           String     @id @default(cuid())
+  flavorId     String
+  packagingId  String
+  productId    String?
+  lotNo        String?
+  quantity     Int        @default(0)
+  expiryDate   DateTime?
+  status       String     @default("available")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  flavor       Flavor     @relation(fields: [flavorId], references: [id])
+  packaging    Packaging  @relation(fields: [packagingId], references: [id])
+  product      Product?   @relation(fields: [productId], references: [id])
+  reservations FinishedGoodsReservation[]
+  shipmentItems ShipmentItem[]
+
+  @@unique([flavorId, packagingId, lotNo])
+  @@index([flavorId])
+  @@index([packagingId])
+}
+
+model FinishedGoodsReservation {
+  id           String              @id @default(cuid())
+  orderId      String
+  orderItemId  String?
+  stockId      String?
+  flavorId     String
+  packagingId  String
+  quantity     Int
+  status       String              @default("active") // active | released | fulfilled
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  order        Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem?          @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  stock        FinishedGoodsStock? @relation(fields: [stockId], references: [id])
+  flavor       Flavor              @relation(fields: [flavorId], references: [id])
+  packaging    Packaging           @relation(fields: [packagingId], references: [id])
+
+  @@index([orderId])
+  @@index([stockId])
+  @@index([flavorId, packagingId])
+}
+
+// ─── Sevkiyat ─────────────────────────────────────────────────────
+
+model Shipment {
+  id              String         @id @default(cuid())
+  shipmentNo      String         @unique
+  orderId         String
+  customerId      String
+  status          String         @default("planned")
+  plannedShipDate DateTime?
+  actualShipDate  DateTime?
+  plannedDelivery DateTime?
+  actualDelivery  DateTime?
+  carrierName     String?
+  driverName      String?
+  vehiclePlate    String?
+  trackingNo      String?
+  boxCount        Int            @default(0)
+  palletCount     Int            @default(0)
+  sealNo          String?
+  receivedBy      String?
+  proofNo         String?
+  checkStockReserved Boolean      @default(false)
+  checkLotExpiry     Boolean      @default(false)
+  checkLabels        Boolean      @default(false)
+  checkQuantities    Boolean      @default(false)
+  checkBoxCount      Boolean      @default(false)
+  checkDocuments     Boolean      @default(false)
+  checkDamage        Boolean      @default(false)
+  issueShortageUnits Int          @default(0)
+  issueDamageUnits   Int          @default(0)
+  issueReturnUnits   Int          @default(0)
+  issueNotes         String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  order           Order          @relation(fields: [orderId], references: [id])
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  items           ShipmentItem[]
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model ShipmentItem {
+  id          String    @id @default(cuid())
+  shipmentId  String
+  orderItemId String?
+  productId   String?
+  stockId     String?
+  lotNo       String?
+  boxCount    Int       @default(0)
+  unitCount   Int       @default(0)
+  shortageUnits Int     @default(0)
+  damageUnits   Int     @default(0)
+  returnUnits   Int     @default(0)
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  product     Product?  @relation(fields: [productId], references: [id])
+  stock       FinishedGoodsStock? @relation(fields: [stockId], references: [id])
+
+  @@index([shipmentId])
+  @@index([orderItemId])
+}
+
+// ─── İnsan Kaynakları ─────────────────────────────────────────────
+
+model Employee {
+  id              String           @id @default(cuid())
+  name            String
+  role            String?
+  department      String?
+  monthlySalaryCents Int           @default(0)
+  hourlyRateCents    Int           @default(0)
+  overtimeMultiplier Float         @default(1.5)
+  shift           String?
+  startDate       DateTime?
+  phone           String?
+  email           String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  attendance      Attendance[]
+  workAssignments WorkAssignment[]
+}
+
+model Attendance {
+  id           String    @id @default(cuid())
+  employeeId   String
+  date         DateTime
+  clockIn      String?
+  clockOut     String?
+  workedHours  Float     @default(0)
+  overtimeHours Float    @default(0)
+  status       String    @default("present") // present | absent | leave | sick
+  notes        String?
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+}
+
+model WorkAssignment {
+  id                String          @id @default(cuid())
+  employeeId        String
+  productionOrderId String?
+  lineId            String?
+  hours             Float           @default(0)
+  date              DateTime
+  notes             String?
+  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
+
+  @@index([employeeId])
+}
+
+// ─── Finans ───────────────────────────────────────────────────────
+
+model FixedExpense {
+  id          String   @id @default(cuid())
+  periodMonth String   @default("2026-02") // YYYY-MM
+  name        String
+  amountCents Int
+  category    String?
+  isActive    Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([periodMonth, name])
+  @@index([periodMonth])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  orderId       String?
+  customerId    String?
+  amountCents   Int
+  direction     String   // in | out
+  status        String   @default("pending")
+  dueDate       DateTime?
+  paidAt        DateTime?
+  method        String?
+  reference     String?
+  isApproved    Boolean  @default(false)
+  approvedById  String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  order         Order?   @relation(fields: [orderId], references: [id])
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  receipts      Receipt[]
+}
+
+model BankStatement {
+  id         String   @id @default(cuid())
+  fileName   String
+  filePath   String
+  periodFrom DateTime?
+  periodTo   DateTime?
+  uploadedAt DateTime @default(now())
+  status     String   @default("pending")
+  receipts   Receipt[]
+}
+
+model Receipt {
+  id              String         @id @default(cuid())
+  paymentId       String?
+  bankStatementId String?
+  fileName        String
+  filePath        String
+  transactionDate DateTime?
+  amountCents     Int?
+  controlNo       String?
+  counterparty    String?
+  direction       String?
+  isMatched       Boolean        @default(false)
+  isApproved      Boolean        @default(false)
+  approvedById    String?
+  rawData         String?
+  createdAt       DateTime       @default(now())
+  payment         Payment?       @relation(fields: [paymentId], references: [id])
+  bankStatement   BankStatement? @relation(fields: [bankStatementId], references: [id])
+}
+
+// ─── Demirbaş & Satın Alma Talebi ─────────────────────────────────
+
+model Asset {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?
+  quantity    Int      @default(1)
+  valueCents  Int      @default(0)
+  location    String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PurchaseRequest {
+  id            String   @id @default(cuid())
+  requestType   String
+  itemName      String
+  description   String?
+  usageArea     String?
+  quantity      Float    @default(1)
+  unit          String?
+  priority      String?
+  supplierId    String?
+  unitPriceCents Int     @default(0)
+  totalCents    Int      @default(0)
+  deliveryDays  Int?
+  warranty      String?
+  status        String   @default("pending_approval")
+  approvedBy    String?
+  orderNo       String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+}
+
+// ─── Gmail Entegrasyonu ───────────────────────────────────────────
+
+model GmailConnection {
+  id           String   @id @default(cuid())
+  email        String
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  scope        String?
+  isActive     Boolean  @default(true)
+  lastSyncAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  messages     GmailInboxMessage[]
+}
+
+model GmailInboxMessage {
+  id              String   @id @default(cuid())
+  gmailMessageId  String   @unique
+  connectionId    String?
+  threadId        String?
+  subject         String?
+  fromEmail       String?
+  receivedAt      DateTime?
+  status          String   @default("pending")
+  orderId         String?
+  attachmentName  String?
+  attachmentPath  String?
+  errorMessage    String?
+  isDemo          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  connection      GmailConnection? @relation(fields: [connectionId], references: [id])
+  order           Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@index([receivedAt])
+}
+
+// ─── Denetim ──────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  entityType String
+  entityId   String
+  field      String
+  oldValue   String?
+  newValue   String?
+  action     String   @default("update")
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

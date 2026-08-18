@@ -1,0 +1,724 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
+import { useFormErrors } from "@/hooks/use-form-errors";
+import {
+  validateCreateShipment,
+  validateDispatchShipment,
+  validateIssueUnits,
+  validatePalletCount,
+} from "@/lib/forms/shipment-validation";
+import { sanitizeIntInput } from "@/lib/forms/validation";
+import { CHECKLIST_FIELDS } from "@/lib/shipments/constants";
+import type { SerializedShipment } from "@/lib/shipments/serialize";
+import type { OrderShippingProgress } from "@/lib/shipments/types";
+
+interface OrderOption {
+  id: string;
+  orderNo: string;
+  customerName: string;
+  status: string;
+  deliveryDate: string | null;
+}
+
+interface LineDraft {
+  orderItemId: string;
+  boxCount: string;
+  unitCount: string;
+  lotNo: string;
+}
+
+interface ShipmentsSectionProps {
+  initialShipments: SerializedShipment[];
+  shippableOrders: OrderOption[];
+  canCreate: boolean;
+  canEdit: boolean;
+  labels: Record<string, string>;
+}
+
+function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+  if (status === "delivered") return "default";
+  if (status === "issue" || status === "returned") return "destructive";
+  if (status === "in_transit" || status === "loaded") return "secondary";
+  return "outline";
+}
+
+export function ShipmentsSection({
+  initialShipments,
+  shippableOrders,
+  canCreate,
+  canEdit,
+  labels,
+}: ShipmentsSectionProps) {
+  const [shipments, setShipments] = useState(initialShipments);
+  const [selectedOrderId, setSelectedOrderId] = useState(shippableOrders[0]?.id ?? "");
+  const [progress, setProgress] = useState<OrderShippingProgress | null>(null);
+  const [lineDrafts, setLineDrafts] = useState<LineDraft[]>([]);
+  const [plannedShipDate, setPlannedShipDate] = useState("");
+  const [selectedShipmentId, setSelectedShipmentId] = useState("");
+  const [detail, setDetail] = useState<SerializedShipment | null>(null);
+  const [carrierName, setCarrierName] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [vehiclePlate, setVehiclePlate] = useState("");
+  const [trackingNo, setTrackingNo] = useState("");
+  const [palletCount, setPalletCount] = useState("");
+  const [sealNo, setSealNo] = useState("");
+  const [receivedBy, setReceivedBy] = useState("");
+  const [proofNo, setProofNo] = useState("");
+  const [issueShortage, setIssueShortage] = useState("");
+  const [issueDamage, setIssueDamage] = useState("");
+  const [issueReturn, setIssueReturn] = useState("");
+  const [issueNotes, setIssueNotes] = useState("");
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const {
+    fieldError,
+    clearErrors,
+    clearFieldError,
+    showApiError,
+    showError,
+    applyValidationErrors,
+    ErrorModal,
+  } = useFormErrors();
+
+  const checklistComplete = useMemo(
+    () => CHECKLIST_FIELDS.every((field) => checklist[field]),
+    [checklist],
+  );
+
+  const loadProgress = useCallback(async (orderId: string) => {
+    if (!orderId) {
+      setProgress(null);
+      setLineDrafts([]);
+      return;
+    }
+    setLoading(true);
+    clearErrors();
+    try {
+      const res = await fetch(`/api/shipments/orders/${orderId}/progress`);
+      const data = await res.json();
+      if (!res.ok) {
+        showApiError(data, labels.loadError);
+        return;
+      }
+      const p = data.progress as OrderShippingProgress;
+      setProgress(p);
+      setLineDrafts(
+        p.lines
+          .filter((l) => l.remainingUnits > 0)
+          .map((l) => ({
+            orderItemId: l.orderItemId,
+            boxCount: String(Math.min(l.remainingBoxes, l.remainingBoxes)),
+            unitCount: String(l.remainingUnits),
+            lotNo: "",
+          })),
+      );
+    } catch {
+      showError(labels.connectionError);
+    } finally {
+      setLoading(false);
+    }
+  }, [labels.connectionError, labels.loadError, clearErrors, showApiError, showError]);
+
+  useEffect(() => {
+    if (selectedOrderId) loadProgress(selectedOrderId);
+  }, [selectedOrderId, loadProgress]);
+
+  const loadDetail = useCallback(async (id: string) => {
+    setLoading(true);
+    clearErrors();
+    try {
+      const res = await fetch(`/api/shipments/${id}`);
+      const data = await res.json();
+      if (!res.ok) {
+        showApiError(data, labels.loadError);
+        return;
+      }
+      const shipment = data.shipment as SerializedShipment;
+      setDetail(shipment);
+      setCarrierName(shipment.carrierName ?? "");
+      setDriverName(shipment.driverName ?? "");
+      setVehiclePlate(shipment.vehiclePlate ?? "");
+      setTrackingNo(shipment.trackingNo ?? "");
+      setPalletCount(String(shipment.palletCount || ""));
+      setSealNo(shipment.sealNo ?? "");
+      setReceivedBy(shipment.receivedBy ?? "");
+      setProofNo(shipment.proofNo ?? "");
+      setIssueShortage(String(shipment.issueShortageUnits || ""));
+      setIssueDamage(String(shipment.issueDamageUnits || ""));
+      setIssueReturn(String(shipment.issueReturnUnits || ""));
+      setIssueNotes(shipment.issueNotes ?? "");
+      setChecklist({
+        checkStockReserved: shipment.checkStockReserved,
+        checkLotExpiry: shipment.checkLotExpiry,
+        checkLabels: shipment.checkLabels,
+        checkQuantities: shipment.checkQuantities,
+        checkBoxCount: shipment.checkBoxCount,
+        checkDocuments: shipment.checkDocuments,
+        checkDamage: shipment.checkDamage,
+      });
+    } catch {
+      showError(labels.connectionError);
+    } finally {
+      setLoading(false);
+    }
+  }, [labels.connectionError, labels.loadError, clearErrors, showApiError, showError]);
+
+  const refreshList = useCallback(async () => {
+    const res = await fetch("/api/shipments");
+    const data = await res.json();
+    if (res.ok) setShipments(data.shipments);
+  }, []);
+
+  const handleCreate = async () => {
+    if (!canCreate || !selectedOrderId) return;
+    if (
+      !applyValidationErrors(
+        validateCreateShipment({
+          orderId: selectedOrderId,
+          orderLabel: labels.selectOrder,
+          lineDrafts,
+          progressLines:
+            progress?.lines.map((l) => ({
+              orderItemId: l.orderItemId,
+              sku: l.sku,
+              remainingUnits: l.remainingUnits,
+            })) ?? [],
+        }),
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+    clearErrors();
+    try {
+      const items = lineDrafts
+        .filter((l) => Number(l.unitCount) > 0)
+        .map((l) => ({
+          orderItemId: l.orderItemId,
+          boxCount: Math.max(0, Math.floor(Number(l.boxCount) || 0)),
+          unitCount: Math.max(0, Math.floor(Number(l.unitCount) || 0)),
+          lotNo: l.lotNo.trim() || null,
+        }));
+
+      const res = await fetch("/api/shipments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: selectedOrderId,
+          plannedShipDate: plannedShipDate || null,
+          items,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showApiError(data, labels.createError);
+        return;
+      }
+      setMessage(labels.created);
+      await refreshList();
+      setSelectedShipmentId(data.shipment.id);
+      await loadDetail(data.shipment.id);
+      await loadProgress(selectedOrderId);
+    } catch {
+      showError(labels.connectionError);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const patchShipment = async (patch: Record<string, unknown>) => {
+    if (!canEdit || !detail) return false;
+    setLoading(true);
+    clearErrors();
+    try {
+      const res = await fetch(`/api/shipments/${detail.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showApiError(data, labels.saveError);
+        return false;
+      }
+      setDetail(data.shipment);
+      await refreshList();
+      if (selectedOrderId) await loadProgress(selectedOrderId);
+      setMessage(labels.saved);
+      return true;
+    } catch {
+      showError(labels.connectionError);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveCarrier = async () => {
+    if (!applyValidationErrors(validatePalletCount(palletCount))) return false;
+    return patchShipment({
+      carrierName,
+      driverName,
+      vehiclePlate,
+      trackingNo,
+      palletCount: Number(palletCount) || 0,
+      sealNo,
+    });
+  };
+
+  const handleSaveChecklist = () =>
+    patchShipment({
+      ...checklist,
+    });
+
+  const handleDispatch = async () => {
+    if (!canEdit || !detail) return;
+    if (
+      !applyValidationErrors(
+        validateDispatchShipment({
+          carrierName,
+          checklist,
+        }),
+      )
+    ) {
+      return;
+    }
+
+    const saved = await handleSaveCarrier();
+    if (!saved) return;
+
+    setLoading(true);
+    clearErrors();
+    try {
+      const res = await fetch(`/api/shipments/${detail.id}/dispatch`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        showApiError(data, labels.dispatchError);
+        return;
+      }
+      setDetail(data.shipment);
+      setMessage(labels.dispatched);
+      await refreshList();
+      if (selectedOrderId) await loadProgress(selectedOrderId);
+    } catch {
+      showError(labels.connectionError);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelivered = () => {
+    if (!applyValidationErrors(validateIssueUnits({
+      shortage: issueShortage,
+      damage: issueDamage,
+      returnUnits: issueReturn,
+    }))) {
+      return;
+    }
+    return patchShipment({
+      status: "delivered",
+      receivedBy,
+      proofNo,
+      issueShortageUnits: Number(issueShortage) || 0,
+      issueDamageUnits: Number(issueDamage) || 0,
+      issueReturnUnits: Number(issueReturn) || 0,
+      issueNotes,
+    });
+  };
+
+  const handleIssue = () => {
+    if (!applyValidationErrors(validateIssueUnits({
+      shortage: issueShortage,
+      damage: issueDamage,
+      returnUnits: issueReturn,
+    }))) {
+      return;
+    }
+    return patchShipment({
+      status: "issue",
+      issueShortageUnits: Number(issueShortage) || 0,
+      issueDamageUnits: Number(issueDamage) || 0,
+      issueReturnUnits: Number(issueReturn) || 0,
+      issueNotes,
+    });
+  };
+
+  const checklistLabel = (field: string) => labels[field] ?? field;
+
+  return (
+    <>
+      {ErrorModal}
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.listTitle}</CardTitle>
+            <Button variant="outline" size="sm" onClick={refreshList} disabled={loading}>
+              {labels.refresh}
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {shipments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{labels.noShipments}</p>
+            ) : (
+              shipments.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedShipmentId(s.id);
+                    loadDetail(s.id);
+                  }}
+                  className={`w-full rounded-lg border p-3 text-left transition hover:bg-muted/50 ${
+                    selectedShipmentId === s.id ? "border-primary bg-muted/30" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{s.shipmentNo}</span>
+                    <Badge variant={statusVariant(s.status)}>{s.statusLabel}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {s.orderNo} · {s.customerName}
+                  </p>
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {canCreate && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{labels.newShipment}</CardTitle>
+              <CardDescription>{labels.partialShipDesc}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField label={labels.selectOrder} error={fieldError("orderId")} required>
+                <select
+                  className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={selectedOrderId}
+                  onChange={(e) => {
+                    setSelectedOrderId(e.target.value);
+                    clearFieldError("orderId");
+                  }}
+                >
+                  {shippableOrders.length === 0 ? (
+                    <option value="">{labels.noOrders}</option>
+                  ) : (
+                    shippableOrders.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.orderNo} — {o.customerName}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </FormField>
+
+              {progress && (
+                <div className="rounded-md border p-3 text-sm">
+                  <p className="font-medium">{labels.progressTitle}</p>
+                  <p className="text-muted-foreground">
+                    {progress.totalShippedUnits} / {progress.totalOrderedUnits} {labels.shipUnits}
+                    {progress.isFullyShipped ? ` · ${labels.fullyShipped}` : ` · ${labels.partiallyShipped}`}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label>{labels.plannedShipDate}</Label>
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={plannedShipDate}
+                  onChange={(e) => setPlannedShipDate(e.target.value)}
+                />
+              </div>
+
+              {lineDrafts.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">{labels.partialShipTitle}</p>
+                  {lineDrafts.map((draft, idx) => {
+                    const line = progress?.lines.find((l) => l.orderItemId === draft.orderItemId);
+                    return (
+                      <div key={draft.orderItemId} className="rounded-md border p-3 space-y-2">
+                        <p className="text-sm font-medium">
+                          {line?.sku} — {line?.flavorName} {line?.packagingLabel}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {labels.orderedUnits}: {line?.orderedUnits} · {labels.shippedUnits}:{" "}
+                          {line?.shippedUnits} · {labels.remainingUnits}: {line?.remainingUnits}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label className="text-xs">{labels.shipBoxes}</Label>
+                            <Input
+                              value={draft.boxCount}
+                              onChange={(e) => {
+                                const next = [...lineDrafts];
+                                next[idx] = {
+                                  ...draft,
+                                  boxCount: sanitizeIntInput(e.target.value),
+                                };
+                                setLineDrafts(next);
+                                clearFieldError(`line-${idx}-boxes`);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">{labels.shipUnits}</Label>
+                            <Input
+                              value={draft.unitCount}
+                              onChange={(e) => {
+                                const next = [...lineDrafts];
+                                next[idx] = {
+                                  ...draft,
+                                  unitCount: sanitizeIntInput(e.target.value),
+                                };
+                                setLineDrafts(next);
+                                clearFieldError(`line-${idx}-units`);
+                                clearFieldError("lines");
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">{labels.lotNo}</Label>
+                            <Input
+                              value={draft.lotNo}
+                              onChange={(e) => {
+                                const next = [...lineDrafts];
+                                next[idx] = { ...draft, lotNo: e.target.value };
+                                setLineDrafts(next);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {fieldError("lines") && (
+                <p className="text-sm text-destructive">{fieldError("lines")}</p>
+              )}
+
+              <Button onClick={handleCreate} disabled={loading || !selectedOrderId}>
+                {loading ? labels.creating : labels.createShipment}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{labels.detailTitle}</CardTitle>
+          {detail && (
+            <CardDescription>
+              {detail.shipmentNo} · {detail.orderNo}
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {!detail ? (
+            <p className="text-sm text-muted-foreground">{labels.selectOrder}</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={statusVariant(detail.status)}>{detail.statusLabel}</Badge>
+                {detail.actualShipDate && (
+                  <Badge variant="outline">
+                    {labels.actualShipDate}: {detail.actualShipDate}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FormField label={labels.carrierName} error={fieldError("carrierName")} required>
+                  <Input
+                    className="mt-1"
+                    value={carrierName}
+                    onChange={(e) => {
+                      setCarrierName(e.target.value);
+                      clearFieldError("carrierName");
+                    }}
+                    disabled={!canEdit}
+                  />
+                </FormField>
+                <div>
+                  <Label>{labels.driverName}</Label>
+                  <Input className="mt-1" value={driverName} onChange={(e) => setDriverName(e.target.value)} disabled={!canEdit} />
+                </div>
+                <div>
+                  <Label>{labels.vehiclePlate}</Label>
+                  <Input className="mt-1" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value)} disabled={!canEdit} />
+                </div>
+                <div>
+                  <Label>{labels.trackingNo}</Label>
+                  <Input className="mt-1" value={trackingNo} onChange={(e) => setTrackingNo(e.target.value)} disabled={!canEdit} />
+                </div>
+                <FormField label={labels.palletCount} error={fieldError("palletCount")}>
+                  <Input
+                    className="mt-1"
+                    value={palletCount}
+                    onChange={(e) => {
+                      setPalletCount(sanitizeIntInput(e.target.value));
+                      clearFieldError("palletCount");
+                    }}
+                    disabled={!canEdit}
+                  />
+                </FormField>
+                <div>
+                  <Label>{labels.sealNo}</Label>
+                  <Input className="mt-1" value={sealNo} onChange={(e) => setSealNo(e.target.value)} disabled={!canEdit} />
+                </div>
+              </div>
+
+              {canEdit && (
+                <Button variant="outline" onClick={handleSaveCarrier} disabled={loading}>
+                  {labels.saveCarrier}
+                </Button>
+              )}
+
+              <div>
+                <p className="mb-2 font-medium">{labels.checklistTitle}</p>
+                <div className="space-y-2">
+                  {CHECKLIST_FIELDS.map((field) => (
+                    <label key={field} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={checklist[field] ?? false}
+                        disabled={!canEdit}
+                        onChange={(e) =>
+                          setChecklist((prev) => ({ ...prev, [field]: e.target.checked }))
+                        }
+                      />
+                      {checklistLabel(field)}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {checklistComplete ? labels.checklistComplete : labels.checklistIncomplete}
+                </p>
+                {fieldError("checklist") && (
+                  <p className="mt-1 text-xs text-destructive">{fieldError("checklist")}</p>
+                )}
+                {canEdit && (
+                  <Button variant="outline" className="mt-2" onClick={handleSaveChecklist} disabled={loading}>
+                    {labels.saveChecklist}
+                  </Button>
+                )}
+              </div>
+
+              {detail.items.length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-medium">{labels.partialShipTitle}</p>
+                  {detail.items.map((item) => (
+                    <div key={item.id} className="rounded border p-2 text-sm">
+                      <span className="font-medium">{item.sku}</span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        — {item.boxCount} koli / {item.unitCount} adet
+                        {item.lotNo ? ` · Lot ${item.lotNo}` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {canEdit && detail.status !== "in_transit" && detail.status !== "delivered" && (
+                <Button onClick={handleDispatch} disabled={loading}>
+                  {loading ? labels.dispatching : labels.dispatch}
+                </Button>
+              )}
+
+              <div>
+                <p className="mb-2 font-medium">{labels.issueTitle}</p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label>{labels.issueShortage}</Label>
+                    <Input
+                      className="mt-1"
+                      value={issueShortage}
+                      onChange={(e) => {
+                        setIssueShortage(sanitizeIntInput(e.target.value));
+                        clearFieldError("issueShortage");
+                      }}
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div>
+                    <Label>{labels.issueDamage}</Label>
+                    <Input
+                      className="mt-1"
+                      value={issueDamage}
+                      onChange={(e) => {
+                        setIssueDamage(sanitizeIntInput(e.target.value));
+                        clearFieldError("issueDamage");
+                      }}
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div>
+                    <Label>{labels.issueReturn}</Label>
+                    <Input
+                      className="mt-1"
+                      value={issueReturn}
+                      onChange={(e) => {
+                        setIssueReturn(sanitizeIntInput(e.target.value));
+                        clearFieldError("issueReturn");
+                      }}
+                      disabled={!canEdit}
+                    />
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <Label>{labels.issueNotes}</Label>
+                  <Input className="mt-1" value={issueNotes} onChange={(e) => setIssueNotes(e.target.value)} disabled={!canEdit} />
+                </div>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>{labels.receivedBy}</Label>
+                    <Input className="mt-1" value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} disabled={!canEdit} />
+                  </div>
+                  <div>
+                    <Label>{labels.proofNo}</Label>
+                    <Input className="mt-1" value={proofNo} onChange={(e) => setProofNo(e.target.value)} disabled={!canEdit} />
+                  </div>
+                </div>
+                {canEdit && detail.status === "in_transit" && (
+                  <div className="mt-3 flex gap-2">
+                    <Button onClick={handleDelivered} disabled={loading}>{labels.markDelivered}</Button>
+                    <Button variant="destructive" onClick={handleIssue} disabled={loading}>
+                      {labels.markIssue}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {message && <p className="text-sm text-green-600">{message}</p>}
+        </CardContent>
+      </Card>
+    </div>
+    </>
+  );
+}

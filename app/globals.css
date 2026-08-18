@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 33% 98%;
+    --foreground: 24 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 10% 10%;
+    --primary: 346 72% 38%;
+    --primary-foreground: 40 33% 98%;
+    --secondary: 40 30% 94%;
+    --secondary-foreground: 24 10% 20%;
+    --muted: 40 20% 94%;
+    --muted-foreground: 24 8% 46%;
+    --accent: 42 85% 55%;
+    --accent-foreground: 24 10% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 346 72% 38%;
+    --radius: 0.625rem;
+    --chart-1: 346 72% 38%;
+    --chart-2: 42 85% 55%;
+    --chart-3: 152 45% 35%;
+    --chart-4: 24 60% 45%;
+    --chart-5: 200 60% 40%;
+    --loquito-gold: 42 85% 55%;
+    --loquito-berry: 346 72% 38%;
+    --loquito-forest: 152 45% 35%;
+  }
+
+  .dark {
+    --background: 24 10% 8%;
+    --foreground: 40 20% 96%;
+    --card: 24 10% 11%;
+    --card-foreground: 40 20% 96%;
+    --popover: 24 10% 11%;
+    --popover-foreground: 40 20% 96%;
+    --primary: 346 65% 52%;
+    --primary-foreground: 40 33% 98%;
+    --secondary: 24 8% 16%;
+    --secondary-foreground: 40 20% 96%;
+    --muted: 24 8% 16%;
+    --muted-foreground: 30 10% 60%;
+    --accent: 42 75% 50%;
+    --accent-foreground: 24 10% 10%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 24 8% 20%;
+    --input: 24 8% 20%;
+    --ring: 346 65% 52%;
+    --chart-1: 346 65% 52%;
+    --chart-2: 42 75% 50%;
+    --chart-3: 152 40% 45%;
+    --chart-4: 24 50% 55%;
+    --chart-5: 200 50% 50%;
+    --loquito-gold: 42 75% 50%;
+    --loquito-berry: 346 65% 52%;
+    --loquito-forest: 152 40% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .table-scroll {
+    @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

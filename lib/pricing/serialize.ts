@@ -7,6 +7,7 @@ import type {
   PriceTierRow,
   SalesRepRow,
 } from "./types";
+import { toIsoString } from "@/lib/utils/datetime";
 
 export function toSalesRepRow(
   rep: {
@@ -43,8 +44,8 @@ export function toPriceListRow(
     name: string;
     channel: string | null;
     region: string | null;
-    validFrom: Date | null;
-    validTo: Date | null;
+    validFrom: Date | string | null;
+    validTo: Date | string | null;
     isActive: boolean;
     items?: { id: string }[];
     customers?: { id: string }[];
@@ -56,8 +57,8 @@ export function toPriceListRow(
     name: list.name,
     channel: list.channel,
     region: list.region,
-    validFrom: list.validFrom?.toISOString() ?? null,
-    validTo: list.validTo?.toISOString() ?? null,
+    validFrom: toIsoString(list.validFrom),
+    validTo: toIsoString(list.validTo),
     isActive: list.isActive,
     itemCount: list.items?.length ?? 0,
     customerCount: list.customers?.length ?? 0,
@@ -141,8 +142,8 @@ export function toCustomerPriceRow(
     productId: string;
     boxPriceCents: number | null;
     unitPriceCents: number | null;
-    validFrom: Date | null;
-    validTo: Date | null;
+    validFrom: Date | string | null;
+    validTo: Date | string | null;
     notes: string | null;
     product: { sku: string; name: string };
   },
@@ -154,8 +155,8 @@ export function toCustomerPriceRow(
     productName: row.product.name,
     boxPriceCents: row.boxPriceCents,
     unitPriceCents: row.unitPriceCents,
-    validFrom: row.validFrom?.toISOString() ?? null,
-    validTo: row.validTo?.toISOString() ?? null,
+    validFrom: toIsoString(row.validFrom),
+    validTo: toIsoString(row.validTo),
     notes: row.notes,
   };
 }

@@ -1,4 +1,5 @@
 import type { OrderItemRow, OrderLineSummary, OrderRow } from "./types";
+import { toIsoString } from "@/lib/utils/datetime";
 
 type OrderItemForSummary = {
   quantityBoxes: number;
@@ -23,15 +24,15 @@ export function toOrderRow(
     customerId: string;
     status: string;
     channel: string | null;
-    orderDate: Date;
-    deliveryDate: Date | null;
+    orderDate: Date | string;
+    deliveryDate: Date | string | null;
     paymentTerms: string | null;
     freightType: string | null;
     totalCents: number;
     discountCents: number;
     freightCents?: number;
     notes: string | null;
-    approvedAt: Date | null;
+    approvedAt: Date | string | null;
     customer?: { name: string };
     items?: OrderItemForSummary[];
   },
@@ -43,15 +44,15 @@ export function toOrderRow(
     customerName: order.customer?.name ?? "",
     status: order.status,
     channel: order.channel,
-    orderDate: order.orderDate.toISOString(),
-    deliveryDate: order.deliveryDate?.toISOString() ?? null,
+    orderDate: toIsoString(order.orderDate) ?? "",
+    deliveryDate: toIsoString(order.deliveryDate),
     paymentTerms: order.paymentTerms,
     freightType: order.freightType,
     totalCents: order.totalCents,
     discountCents: order.discountCents,
     freightCents: order.freightCents ?? 0,
     notes: order.notes,
-    approvedAt: order.approvedAt?.toISOString() ?? null,
+    approvedAt: toIsoString(order.approvedAt),
     itemCount: order.items?.length ?? 0,
     lineSummaries: extractLineSummaries(order.items),
   };

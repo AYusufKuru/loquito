@@ -23,25 +23,24 @@ export async function getAvailableQtyMap(
   const result = new Map<string, number>();
   if (unique.length === 0) return result;
 
-  const [lots, lotCounts, materials] = await Promise.all([
-    db.materialLot.findMany({
-      where: {
-        materialId: { in: unique },
-        status: { in: USABLE_LOT_STATUSES },
-        quantity: { gt: 0 },
-      },
-      select: { materialId: true, quantity: true },
-    }),
-    db.materialLot.groupBy({
-      by: ["materialId"],
-      where: { materialId: { in: unique } },
-      _count: { _all: true },
-    }),
-    db.material.findMany({
-      where: { id: { in: unique } },
-      select: { id: true, currentQty: true },
-    }),
-  ]);
+  // Transaction içinde paralel sorgu Prisma'da "Transaction not found" hatasına yol açar.
+  const lots = await db.materialLot.findMany({
+    where: {
+      materialId: { in: unique },
+      status: { in: USABLE_LOT_STATUSES },
+      quantity: { gt: 0 },
+    },
+    select: { materialId: true, quantity: true },
+  });
+  const lotCounts = await db.materialLot.groupBy({
+    by: ["materialId"],
+    where: { materialId: { in: unique } },
+    _count: { _all: true },
+  });
+  const materials = await db.material.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, currentQty: true },
+  });
 
   const lotSum = new Map<string, number>();
   for (const lot of lots) {

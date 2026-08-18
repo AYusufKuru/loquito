@@ -42,26 +42,24 @@ export async function getAvailableFinishedUnitsMap(
   const flavorIds = [...new Set(unique.map((pair) => pair.flavorId))];
   const packagingIds = [...new Set(unique.map((pair) => pair.packagingId))];
 
-  const [stocks, reservations] = await Promise.all([
-    db.finishedGoodsStock.groupBy({
-      by: ["flavorId", "packagingId"],
-      where: {
-        flavorId: { in: flavorIds },
-        packagingId: { in: packagingIds },
-        status: "available",
-      },
-      _sum: { quantity: true },
-    }),
-    db.finishedGoodsReservation.groupBy({
-      by: ["flavorId", "packagingId"],
-      where: {
-        flavorId: { in: flavorIds },
-        packagingId: { in: packagingIds },
-        status: "active",
-      },
-      _sum: { quantity: true },
-    }),
-  ]);
+  const stocks = await db.finishedGoodsStock.groupBy({
+    by: ["flavorId", "packagingId"],
+    where: {
+      flavorId: { in: flavorIds },
+      packagingId: { in: packagingIds },
+      status: "available",
+    },
+    _sum: { quantity: true },
+  });
+  const reservations = await db.finishedGoodsReservation.groupBy({
+    by: ["flavorId", "packagingId"],
+    where: {
+      flavorId: { in: flavorIds },
+      packagingId: { in: packagingIds },
+      status: "active",
+    },
+    _sum: { quantity: true },
+  });
 
   const onHand = new Map(
     stocks.map((row) => [

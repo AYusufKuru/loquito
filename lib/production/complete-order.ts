@@ -151,7 +151,7 @@ export async function completeProductionOrder(
     }
 
     return updated;
-  });
+  }, { timeout: 30_000 });
 }
 
 export async function startProductionOrder(db: PrismaClient, productionOrderId: string, lineId?: string) {

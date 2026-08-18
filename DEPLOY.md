@@ -2,10 +2,32 @@
 
 Bu belge Loquito'yu **Vercel** üzerinde çalıştırmak ve veritabanı + dosyalar için **Supabase** kullanmak için adım adım kurulumu anlatır.
 
+## Bölge seçimi (Türkiye + Brezilya)
+
+İki ülke arasında tek bir “ortada” veri merkezi yok; en dengeli seçenek **ABD Doğu (Virginia)**:
+
+| Servis | Bölge | Kod |
+|--------|--------|-----|
+| **Vercel** (sunucu fonksiyonları) | Washington D.C. | `iad1` |
+| **Supabase** (PostgreSQL + Storage) | East US (North Virginia) | `us-east-1` |
+
+Kabaca gecikme (tek yön):
+
+| Kaynak | Virginia (`iad1` / `us-east-1`) |
+|--------|-----------------------------------|
+| Türkiye | ~100–130 ms |
+| Brezilya | ~100–120 ms |
+
+> Avrupa (`fra1` + `eu-central-1`) Türkiye için daha hızlı (~50 ms) ama Brezilya ~220 ms olur. Brezilya ağırlıklı kullanımda `gru1` + `sa-east-1` tercih edilir.
+
+**Önemli:** Supabase projesinin bölgesi sonradan değiştirilemez. Yanlış bölgede proje varsa **yeni proje** açıp veriyi taşımanız gerekir (aşağıdaki “Bölge taşıma” bölümü).
+
+`vercel.json` içinde `"regions": ["iad1"]` tanımlı — Vercel fonksiyonları Supabase ile aynı bölgede çalışır.
+
 ## 1. Supabase projesi oluştur
 
 1. [supabase.com](https://supabase.com) → **New project**
-2. Bölge: Vercel ile aynı bölgeyi seç (ör. `Frankfurt / eu-central-1`)
+2. **Region:** `East US (North Virginia)` — `us-east-1` (Vercel `iad1` ile eşleşir)
 3. Veritabanı şifresini kaydet
 
 ## 2. Veritabanı bağlantı bilgileri
@@ -16,6 +38,8 @@ Bu belge Loquito'yu **Vercel** üzerinde çalıştırmak ve veritabanı + dosyal
 |------|-----|------|
 | `DATABASE_URL` (Vercel) | Transaction pooling | 6543 |
 | `DIRECT_URL` (migration) | Session / Direct | 5432 |
+
+Örnek host (Virginia): `aws-0-us-east-1.pooler.supabase.com`
 
 `.env` dosyana kopyala (`.env.example` şablonuna bak).
 
@@ -102,6 +126,28 @@ https://senin-proje.vercel.app/api/ai/gmail/callback
 
 Vercel env'e `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REDIRECT_URI` ekle.
 
+## 9. Bölge taşıma (İrlanda / Frankfurt → Virginia)
+
+Mevcut Supabase projeniz `eu-west-1` veya `eu-central-1` bölgesindeyse yeni proje açmanız gerekir:
+
+1. Supabase → **New project** → Region: **East US (North Virginia)**
+2. Storage'da `loquito` bucket'ını oluştur
+3. Lokal `.env` dosyasını yeni bağlantı dizeleriyle güncelle:
+   - `DATABASE_URL` → `...@aws-0-us-east-1.pooler.supabase.com:6543/...?pgbouncer=true`
+   - `DIRECT_URL` → `...@aws-0-us-east-1.pooler.supabase.com:5432/...`
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` → yeni proje değerleri
+4. Şema ve seed:
+   ```bash
+   npm run db:deploy
+   npm run db:seed
+   ```
+5. Eski projede canlı veri varsa: Supabase Dashboard → **Database → Backups** veya `pg_dump` / `pg_restore` ile taşıyın; dosyaları Storage'dan yeni bucket'a kopyalayın
+6. Vercel → **Settings → Environment Variables** — tüm Supabase değişkenlerini güncelle
+7. Vercel → **Settings → Functions** → Region: `Washington, D.C. (iad1)` (veya `vercel.json` deploy ile otomatik)
+8. **Redeploy** ve `https://senin-proje.vercel.app/api/health` ile DB bağlantısını doğrula
+
+Eski İrlanda projesini veri taşındıktan sonra silebilirsiniz.
+
 ## Sorun giderme
 
 | Sorun | Çözüm |
@@ -110,3 +156,5 @@ Vercel env'e `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REDIRECT_URI` ekle
 | Migration hatası | `DIRECT_URL` ile `npm run db:deploy` çalıştır |
 | Dosya yüklenmiyor | Storage bucket adı ve service role key kontrol et |
 | Oturum açılmıyor | `JWT_SECRET` Vercel'de tanımlı mı? |
+| Yavaş sayfa yükleme | Vercel (`iad1`) ve Supabase (`us-east-1`) aynı bölgede mi? |
+| `postgres.xxx not found` | `DATABASE_URL` içinde gerçek proje ref kullanın, placeholder değil |

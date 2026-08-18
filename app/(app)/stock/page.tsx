@@ -6,6 +6,7 @@ import {
 import { getStockPageData } from "@/lib/data/stock-page";
 import { t } from "@/lib/i18n";
 import { toMaterialRow } from "@/lib/stock/serialize";
+import { toIsoString } from "@/lib/utils/datetime";
 
 export const revalidate = 30;
 
@@ -209,9 +210,9 @@ export default async function StockPage() {
         internalLotNo: lot.internalLotNo,
         supplierLotNo: lot.supplierLotNo,
         quantity: lot.quantity,
-        expiryDate: lot.expiryDate?.toISOString() ?? null,
+        expiryDate: toIsoString(lot.expiryDate),
         status: lot.status,
-        receivedAt: lot.receivedAt.toISOString(),
+        receivedAt: toIsoString(lot.receivedAt) ?? "",
         notes: lot.notes,
         isUsable: lot.status === "released",
       }))}
@@ -226,7 +227,7 @@ export default async function StockPage() {
         type: m.type,
         quantity: m.quantity,
         notes: m.notes,
-        createdAt: m.createdAt.toISOString(),
+        createdAt: toIsoString(m.createdAt) ?? "",
       }))}
       summary={summary}
       suppliers={suppliers}

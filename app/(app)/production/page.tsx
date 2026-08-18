@@ -6,6 +6,7 @@ import {
 import { getProductionPageData } from "@/lib/data/production-page";
 import { t } from "@/lib/i18n";
 import { serializeProductionOrder } from "@/lib/production/serialize";
+import { toDateOnlyString } from "@/lib/utils/datetime";
 
 export const revalidate = 20;
 
@@ -153,9 +154,7 @@ export default async function ProductionPage() {
           orderNo: o.orderNo,
           customerName: o.customer.name,
           status: o.status,
-          deliveryDate: o.deliveryDate
-            ? o.deliveryDate.toISOString().slice(0, 10)
-            : null,
+          deliveryDate: toDateOnlyString(o.deliveryDate),
         }))}
         productionOrders={productionOrders.map(serializeProductionOrder)}
         lines={lines}

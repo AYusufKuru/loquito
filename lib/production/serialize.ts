@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
+import { toIsoString } from "@/lib/utils/datetime";
+
 import { PRODUCTION_STATUS_LABELS, type ProductionOrderStatus } from "./order-constants";
 
 type OrderRow = Prisma.ProductionOrderGetPayload<{
@@ -100,10 +102,10 @@ export function serializeProductionOrder(row: OrderRow): SerializedProductionOrd
     producedUnits: row.producedUnits,
     scrapKg: row.scrapKg,
     yieldPercent: row.yieldPercent,
-    plannedStart: row.plannedStart?.toISOString() ?? null,
-    plannedEnd: row.plannedEnd?.toISOString() ?? null,
-    actualStart: row.actualStart?.toISOString() ?? null,
-    actualEnd: row.actualEnd?.toISOString() ?? null,
+    plannedStart: toIsoString(row.plannedStart),
+    plannedEnd: toIsoString(row.plannedEnd),
+    actualStart: toIsoString(row.actualStart),
+    actualEnd: toIsoString(row.actualEnd),
     notes: row.notes,
     consumptions: row.consumptions.map((c) => ({
       id: c.id,
@@ -121,9 +123,9 @@ export function serializeProductionOrder(row: OrderRow): SerializedProductionOrd
       id: s.id,
       quantityKg: s.quantityKg,
       reason: s.reason,
-      createdAt: s.createdAt.toISOString(),
+      createdAt: toIsoString(s.createdAt) ?? "",
     })),
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    createdAt: toIsoString(row.createdAt) ?? "",
+    updatedAt: toIsoString(row.updatedAt) ?? "",
   };
 }

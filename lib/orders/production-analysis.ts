@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { cache } from "react";
 
 import {
   boxesPerBatch,
@@ -15,8 +16,8 @@ import {
   getFactoryLaborHoursPerBatch,
 } from "@/lib/hr/labor";
 import { allocateOrderOverhead } from "@/lib/finance/overhead";
-import { getAvailableFinishedUnits } from "@/lib/finished-stock/availability";
-import { getAvailableQty } from "@/lib/stock/inventory";
+import { getAvailableFinishedUnitsMap } from "@/lib/finished-stock/availability";
+import { getAvailableQtyMap } from "@/lib/stock/inventory";
 
 type Db = PrismaClient;
 
@@ -82,6 +83,16 @@ export async function analyzeOrderProduction(
   db: Db,
   orderId: string,
 ): Promise<OrderProductionAnalysis | null> {
+  return analyzeOrderProductionImpl(db, orderId);
+}
+
+/** Aynı istek içinde tekrarlayan sipariş analizlerini tekilleştirir (dashboard vb.). */
+export const getOrderProductionAnalysis = cache(analyzeOrderProduction);
+
+async function analyzeOrderProductionImpl(
+  db: Db,
+  orderId: string,
+): Promise<OrderProductionAnalysis | null> {
   const order = await db.order.findUnique({
     where: { id: orderId },
     include: {
@@ -121,9 +132,20 @@ export async function analyzeOrderProduction(
   if (!order) return null;
 
   const laborInfo = await computeOrderLaborCost(db, orderId);
-  const hoursPerBatch = await getFactoryLaborHoursPerBatch(db);
-  const avgHourly = await getAvgProductionHourlyRateCents(db);
-  const teamSize = await getFactoryCookTeamSize(db);
+  const [hoursPerBatch, avgHourly, teamSize, finishedStockMap] = await Promise.all([
+    getFactoryLaborHoursPerBatch(db),
+    getAvgProductionHourlyRateCents(db),
+    getFactoryCookTeamSize(db),
+    getAvailableFinishedUnitsMap(
+      db,
+      order.items
+        .filter((item) => item.product.flavorId && item.product.packagingId)
+        .map((item) => ({
+          flavorId: item.product.flavorId!,
+          packagingId: item.product.packagingId!,
+        })),
+    ),
+  ]);
 
   const materialNeeds = new Map<string, MaterialNeedAccumulator>();
 
@@ -140,7 +162,7 @@ export async function analyzeOrderProduction(
 
     const stockUnits =
       product.flavorId && product.packagingId
-        ? await getAvailableFinishedUnits(db, product.flavorId, product.packagingId)
+        ? finishedStockMap.get(`${product.flavorId}:${product.packagingId}`) ?? 0
         : 0;
 
     const fromStockUnits = Math.min(requiredUnits, stockUnits);
@@ -313,10 +335,15 @@ export async function analyzeOrderProduction(
     line.expectedProfitCents = line.revenueCents - line.productionCostCents;
   }
 
+  const availableQtyMap = await getAvailableQtyMap(
+    db,
+    [...materialNeeds.keys()],
+  );
+
   const materials: MaterialNeedRow[] = [];
   for (const m of materialNeeds.values()) {
     // Kalite tarafından serbest bırakılmamış lotlar kullanılabilir sayılmaz.
-    const availableQty = await getAvailableQty(db, m.materialId);
+    const availableQty = availableQtyMap.get(m.materialId) ?? 0;
     const shortageQty = Math.max(0, m.requiredQty - availableQty);
 
     materials.push({

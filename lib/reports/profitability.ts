@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { getMonthlyOverheadPool } from "@/lib/finance/overhead";
 import { ACTIVE_ORDER_STATUSES } from "@/lib/orders/constants";
-import { analyzeOrderProduction } from "@/lib/orders/production-analysis";
+import { getOrderProductionAnalysis } from "@/lib/orders/production-analysis";
 
 import type { DateRange, ReportGroupBy } from "./constants";
 import { monthsInRange } from "./constants";
@@ -85,7 +85,7 @@ export async function buildProfitabilityReport(
   let totalProfit = 0;
 
   for (const order of orders) {
-    const analysis = await analyzeOrderProduction(db, order.id);
+    const analysis = await getOrderProductionAnalysis(db, order.id);
     if (!analysis) continue;
 
     totalRevenue += analysis.totalRevenueCents;

@@ -10,23 +10,59 @@ export async function getLotCount(db: DbClient, materialId: string): Promise<num
 }
 
 export async function getAvailableQty(db: DbClient, materialId: string): Promise<number> {
-  const lots = await db.materialLot.findMany({
-    where: {
-      materialId,
-      status: { in: USABLE_LOT_STATUSES },
-      quantity: { gt: 0 },
-    },
-  });
+  const map = await getAvailableQtyMap(db, [materialId]);
+  return map.get(materialId) ?? 0;
+}
 
-  const fromLots = lots.reduce((sum, lot) => sum + lot.quantity, 0);
-  const lotCount = await getLotCount(db, materialId);
+/** Malzeme başına ayrı sorgu atmak yerine tek seferde kullanılabilir miktarları döner. */
+export async function getAvailableQtyMap(
+  db: DbClient,
+  materialIds: string[],
+): Promise<Map<string, number>> {
+  const unique = [...new Set(materialIds)];
+  const result = new Map<string, number>();
+  if (unique.length === 0) return result;
 
-  if (lotCount === 0) {
-    const material = await db.material.findUnique({ where: { id: materialId } });
-    return material?.currentQty ?? 0;
+  const [lots, lotCounts, materials] = await Promise.all([
+    db.materialLot.findMany({
+      where: {
+        materialId: { in: unique },
+        status: { in: USABLE_LOT_STATUSES },
+        quantity: { gt: 0 },
+      },
+      select: { materialId: true, quantity: true },
+    }),
+    db.materialLot.groupBy({
+      by: ["materialId"],
+      where: { materialId: { in: unique } },
+      _count: { _all: true },
+    }),
+    db.material.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, currentQty: true },
+    }),
+  ]);
+
+  const lotSum = new Map<string, number>();
+  for (const lot of lots) {
+    lotSum.set(lot.materialId, (lotSum.get(lot.materialId) ?? 0) + lot.quantity);
   }
 
-  return fromLots;
+  const countMap = new Map(
+    lotCounts.map((row) => [row.materialId, row._count._all]),
+  );
+  const materialQty = new Map(materials.map((m) => [m.id, m.currentQty]));
+
+  for (const materialId of unique) {
+    const lotCount = countMap.get(materialId) ?? 0;
+    if (lotCount === 0) {
+      result.set(materialId, materialQty.get(materialId) ?? 0);
+    } else {
+      result.set(materialId, lotSum.get(materialId) ?? 0);
+    }
+  }
+
+  return result;
 }
 
 export async function deductFromReleasedLots(

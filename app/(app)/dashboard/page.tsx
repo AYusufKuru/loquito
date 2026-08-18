@@ -5,6 +5,7 @@ import { t } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 
 export const revalidate = 30;
+export const maxDuration = 60;
 
 export default async function DashboardPage() {
   await requireModuleAccess("dashboard");

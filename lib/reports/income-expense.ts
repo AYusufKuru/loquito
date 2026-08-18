@@ -3,7 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
 import { getMonthlyOverheadPool } from "@/lib/finance/overhead";
 import { ACTIVE_ORDER_STATUSES } from "@/lib/orders/constants";
-import { analyzeOrderProduction } from "@/lib/orders/production-analysis";
+import { getOrderProductionAnalysis } from "@/lib/orders/production-analysis";
 
 import type { DateRange } from "./constants";
 import { monthsInRange } from "./constants";
@@ -48,7 +48,7 @@ async function buildIncomeExpenseReportUncached(
     let productionCostCents = 0;
 
     for (const order of orders) {
-      const analysis = await analyzeOrderProduction(db, order.id);
+      const analysis = await getOrderProductionAnalysis(db, order.id);
       if (!analysis) continue;
       revenueCents += analysis.totalRevenueCents;
       // Yalnızca değişken malzeme maliyeti. İşçilik ("Maaşlar") ve dağıtılmış

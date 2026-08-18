@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
-import { applyProductionOutbound } from "./stock-outbound";
+import { applyProductionOutboundBatch } from "./stock-outbound";
+import type { ProductionOutboundInput } from "./stock-outbound";
 import { productionOrderInclude } from "./create-order";
 
 export interface ConsumptionActualInput {
@@ -47,6 +48,8 @@ export async function completeProductionOrder(
       order.consumptions.map((c) => [c.id, c]),
     );
 
+    const outboundItems: ProductionOutboundInput[] = [];
+
     for (const row of input.consumptions) {
       const planned = consumptionMap.get(row.consumptionId);
       if (!planned) continue;
@@ -57,7 +60,7 @@ export async function completeProductionOrder(
       }
 
       if (actualQty > 0) {
-        await applyProductionOutbound(tx, {
+        outboundItems.push({
           materialId: planned.materialId,
           quantity: actualQty,
           lotId: row.lotId,
@@ -65,11 +68,18 @@ export async function completeProductionOrder(
           notes: `${order.productionNo} tüketim`,
         });
       }
+    }
+
+    await applyProductionOutboundBatch(tx, outboundItems);
+
+    for (const row of input.consumptions) {
+      const planned = consumptionMap.get(row.consumptionId);
+      if (!planned) continue;
 
       await tx.productionConsumption.update({
         where: { id: row.consumptionId },
         data: {
-          actualQty,
+          actualQty: row.actualQty,
           lotId: row.lotId ?? null,
         },
       });
@@ -151,7 +161,7 @@ export async function completeProductionOrder(
     }
 
     return updated;
-  }, { timeout: 30_000 });
+  }, { timeout: 60_000 });
 }
 
 export async function startProductionOrder(db: PrismaClient, productionOrderId: string, lineId?: string) {

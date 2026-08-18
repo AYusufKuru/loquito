@@ -831,6 +831,7 @@
     "lot": "Lote",
     "autoLot": "Automático (lote liberado)",
     "closeBatch": "Fechar lote — baixar estoque e entrada de produto acabado",
+    "saving": "Salvando…",
     "completed": "Lote fechado; estoque atualizado.",
     "completeError": "Não foi possível fechar o lote.",
     "createFromOrder": "Criar ordens de produção",

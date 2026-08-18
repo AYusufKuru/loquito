@@ -834,6 +834,7 @@ export const tr = {
     lot: "Lot",
     autoLot: "Otomatik (serbest lot)",
     closeBatch: "Partiyi kapat — stok düş & mamul giriş",
+    saving: "Kaydediliyor…",
     completed: "Parti kapatıldı; stok güncellendi.",
     completeError: "Parti kapatılamadı.",
     createFromOrder: "Üretim emirleri oluştur",

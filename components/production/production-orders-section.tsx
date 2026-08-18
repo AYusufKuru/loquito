@@ -554,7 +554,7 @@ export function ProductionOrdersSection({
                     </div>
 
                     <Button onClick={handleComplete} disabled={actionLoading || lotsLoading}>
-                      {labels.closeBatch}
+                      {actionLoading ? labels.saving : labels.closeBatch}
                     </Button>
                   </div>
                 )}

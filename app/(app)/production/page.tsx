@@ -103,6 +103,7 @@ export default async function ProductionPage() {
     lot: t("production.lot"),
     autoLot: t("production.autoLot"),
     closeBatch: t("production.closeBatch"),
+    saving: t("production.saving"),
     completed: t("production.completed"),
     completeError: t("production.completeError"),
     createFromOrder: t("production.createFromOrder"),

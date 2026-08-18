@@ -831,6 +831,7 @@
     "lot": "Lot",
     "autoLot": "Automatic (released lot)",
     "closeBatch": "Close batch — deduct stock & finished goods intake",
+    "saving": "Saving…",
     "completed": "Batch closed; stock updated.",
     "completeError": "Could not close batch.",
     "createFromOrder": "Create production orders",

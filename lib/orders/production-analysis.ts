@@ -241,18 +241,19 @@ async function analyzeOrderProductionImpl(
       }
 
       // Hammadde tam parti üzerinden hesaplanır (kazan yarım pişirilemez), ancak
-      // kutu/beşik/koli yalnızca siparişe paketlenecek adet kadar gerekir. Partiden
-      // artan ürün paketlenmeden beklediği için bu ambalaj siparişi bloke etmemeli.
+      // kutu/beşik/koli reçetede kutu (adet) başına yazılır. Çarpan sipariş
+      // kolisi değil, üretilecek kutu adedidir.
       for (const pi of recipe.items.filter(
         (i) => i.itemType === "packaging" && i.packagingId === packaging.id,
       )) {
         if (!pi.materialId || !pi.material) continue;
-        const perBatch = isPerBatchItem(
+        const need = packagingNeedForOrder(
+          pi.quantity,
           pi.material.subcategory,
           pi.notes,
+          toProduceUnits,
+          batchesNeeded,
         );
-        const multiplier = perBatch ? batchesNeeded : toProduceBoxes;
-        const need = pi.quantity * multiplier;
         accumulateMaterial(materialNeeds, pi.material, need);
       }
     }
@@ -455,6 +456,19 @@ function accumulateMaterial(
     isDailySupply: material.isDailySupply,
     isOverhead: isOverheadMaterial(material.subcategory),
   });
+}
+
+function packagingNeedForOrder(
+  quantity: number,
+  subcategory: string | null,
+  notes: string | null,
+  toProduceUnits: number,
+  batchesNeeded: number,
+): number {
+  if (isPerBatchItem(subcategory, notes)) return quantity * batchesNeeded;
+  const need = quantity * toProduceUnits;
+  if (subcategory === "ship_box") return Math.ceil(need - 1e-9);
+  return need;
 }
 
 function roundQty(qty: number): number {

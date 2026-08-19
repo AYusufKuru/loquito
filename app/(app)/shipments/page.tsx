@@ -17,6 +17,7 @@ export default async function ShipmentsPage() {
 
   const canCreate = hasPermission(permissions, "shipments", "create");
   const canEdit = hasPermission(permissions, "shipments", "edit");
+  const canDelete = hasPermission(permissions, "shipments", "delete");
 
   const [shipments, shippableOrders] = await Promise.all([
     listShipments(prisma),
@@ -87,6 +88,10 @@ export default async function ShipmentsPage() {
     product: t("shipments.product"),
     notes: t("shipments.notes"),
     refresh: t("shipments.refresh"),
+    delete: t("shipments.delete"),
+    deleteConfirm: t("shipments.deleteConfirm"),
+    deleted: t("shipments.deleted"),
+    deleteError: t("shipments.deleteError"),
     checkStockReserved: t("shipments.checkStockReserved"),
     checkLotExpiry: t("shipments.checkLotExpiry"),
     checkLabels: t("shipments.checkLabels"),
@@ -111,6 +116,7 @@ export default async function ShipmentsPage() {
           }))}
           canCreate={canCreate}
           canEdit={canEdit}
+          canDelete={canDelete}
           labels={labels}
         />
     </div>

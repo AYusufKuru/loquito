@@ -48,6 +48,7 @@ interface ShipmentsSectionProps {
   shippableOrders: OrderOption[];
   canCreate: boolean;
   canEdit: boolean;
+  canDelete: boolean;
   labels: Record<string, string>;
 }
 
@@ -63,6 +64,7 @@ export function ShipmentsSection({
   shippableOrders,
   canCreate,
   canEdit,
+  canDelete,
   labels,
 }: ShipmentsSectionProps) {
   const [shipments, setShipments] = useLiveState(initialShipments);
@@ -362,6 +364,33 @@ export function ShipmentsSection({
     });
   };
 
+  const handleDelete = async (id: string) => {
+    if (!canDelete) return;
+    if (!confirm(labels.deleteConfirm)) return;
+
+    setLoading(true);
+    clearErrors();
+    try {
+      const res = await apiFetch(`/api/shipments/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        showApiError(data, labels.deleteError);
+        return;
+      }
+      setShipments((prev) => prev.filter((s) => s.id !== id));
+      if (selectedShipmentId === id) {
+        setSelectedShipmentId("");
+        setDetail(null);
+      }
+      setMessage(labels.deleted);
+      if (selectedOrderId) await loadProgress(selectedOrderId);
+    } catch {
+      showError(labels.connectionError);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const checklistLabel = (field: string) => labels[field] ?? field;
 
   return (
@@ -381,25 +410,41 @@ export function ShipmentsSection({
               <p className="text-sm text-muted-foreground">{labels.noShipments}</p>
             ) : (
               shipments.map((s) => (
-                <button
+                <div
                   key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedShipmentId(s.id);
-                    loadDetail(s.id);
-                  }}
-                  className={`w-full rounded-lg border p-3 text-left transition hover:bg-muted/50 ${
+                  className={`flex items-stretch rounded-lg border transition hover:bg-muted/50 ${
                     selectedShipmentId === s.id ? "border-primary bg-muted/30" : ""
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{s.shipmentNo}</span>
-                    <Badge variant={statusVariant(s.status)}>{s.statusLabel}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {s.orderNo} · {s.customerName}
-                  </p>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedShipmentId(s.id);
+                      loadDetail(s.id);
+                    }}
+                    className="min-w-0 flex-1 p-3 text-left"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{s.shipmentNo}</span>
+                      <Badge variant={statusVariant(s.status)}>{s.statusLabel}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {s.orderNo} · {s.customerName}
+                    </p>
+                  </button>
+                  {canDelete && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="m-2 shrink-0 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(s.id)}
+                      disabled={loading}
+                    >
+                      {labels.delete}
+                    </Button>
+                  )}
+                </div>
               ))
             )}
           </CardContent>
@@ -543,12 +588,24 @@ export function ShipmentsSection({
             <p className="text-sm text-muted-foreground">{labels.selectOrder}</p>
           ) : (
             <>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={statusVariant(detail.status)}>{detail.statusLabel}</Badge>
                 {detail.actualShipDate && (
                   <Badge variant="outline">
                     {labels.actualShipDate}: {detail.actualShipDate}
                   </Badge>
+                )}
+                {canDelete && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => handleDelete(detail.id)}
+                    disabled={loading}
+                  >
+                    {labels.delete}
+                  </Button>
                 )}
               </div>
 

@@ -331,6 +331,82 @@ export async function dispatchShipment(db: PrismaClient, id: string) {
   );
 }
 
+const DISPATCHED_STATUSES = new Set(["in_transit", "delivered", "issue", "returned"]);
+
+export async function deleteShipment(db: PrismaClient, id: string): Promise<void> {
+  await db.$transaction(
+    async (tx) => {
+      const shipment = await tx.shipment.findUnique({
+        where: { id },
+        include: { items: { include: { orderItem: true } } },
+      });
+      if (!shipment) throw new Error("Sevkiyat bulunamadı.");
+
+      if (DISPATCHED_STATUSES.has(shipment.status)) {
+        for (const item of shipment.items) {
+          if (item.stockId && item.unitCount > 0) {
+            const stock = await tx.finishedGoodsStock.findUnique({
+              where: { id: item.stockId },
+              select: { id: true },
+            });
+            if (stock) {
+              await tx.finishedGoodsStock.update({
+                where: { id: item.stockId },
+                data: { quantity: { increment: item.unitCount } },
+              });
+            }
+          }
+
+          if (item.orderItemId && item.orderItem) {
+            const boxesPerUnit =
+              item.orderItem.quantityUnits > 0
+                ? item.orderItem.quantityBoxes / item.orderItem.quantityUnits
+                : 0;
+            const shippedBoxes = boxesPerUnit * item.unitCount;
+            await tx.orderItem.update({
+              where: { id: item.orderItemId },
+              data: {
+                shippedUnits: Math.max(0, item.orderItem.shippedUnits - item.unitCount),
+                shippedBoxes: Math.max(0, item.orderItem.shippedBoxes - shippedBoxes),
+              },
+            });
+          }
+        }
+      }
+
+      await tx.shipment.delete({ where: { id } });
+
+      if (DISPATCHED_STATUSES.has(shipment.status)) {
+        const progress = await getOrderShippingProgress(tx, shipment.orderId);
+        if (!progress) return;
+        if (progress.isFullyShipped) {
+          await tx.order.update({
+            where: { id: shipment.orderId },
+            data: { status: "shipped" },
+          });
+        } else if (progress.totalShippedUnits > 0) {
+          await tx.order.update({
+            where: { id: shipment.orderId },
+            data: { status: "ready_ship" },
+          });
+        } else {
+          const order = await tx.order.findUnique({
+            where: { id: shipment.orderId },
+            select: { status: true },
+          });
+          if (order?.status === "shipped") {
+            await tx.order.update({
+              where: { id: shipment.orderId },
+              data: { status: "ready_ship" },
+            });
+          }
+        }
+      }
+    },
+    { timeout: 20_000 },
+  );
+}
+
 export async function listShipments(db: Db, filters?: { orderId?: string; status?: string }) {
   return db.shipment.findMany({
     where: {

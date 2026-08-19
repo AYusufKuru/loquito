@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ASSET_CATEGORIES } from "@/lib/assets/constants";
+import { useLiveState } from "@/hooks/use-live-state";
 import type { AssetRow } from "@/lib/assets/types";
 import {
   formatBrlFromCents,
@@ -48,8 +51,8 @@ export function InventorySection({
   canDelete,
   labels,
 }: InventorySectionProps) {
-  const [assets, setAssets] = useState(initialAssets);
-  const [totalValueCents, setTotalValueCents] = useState(initialTotalValueCents);
+  const [assets, setAssets] = useLiveState(initialAssets);
+  const [totalValueCents, setTotalValueCents] = useLiveState(initialTotalValueCents);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
@@ -60,7 +63,7 @@ export function InventorySection({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/assets/inventory");
+      const res = await apiFetch("/api/assets/inventory");
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || labels.loadError);
@@ -93,7 +96,7 @@ export function InventorySection({
     setError("");
     setMessage("");
     try {
-      const res = await fetch("/api/assets/inventory", {
+      const res = await apiFetch("/api/assets/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -127,7 +130,7 @@ export function InventorySection({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/assets/inventory/${asset.id}`, {
+      const res = await apiFetch(`/api/assets/inventory/${asset.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !asset.isActive }),
@@ -151,7 +154,7 @@ export function InventorySection({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/assets/inventory/${id}`, {
+      const res = await apiFetch(`/api/assets/inventory/${id}`, {
         method: "DELETE",
       });
       const data = await res.json();

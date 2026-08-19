@@ -9,29 +9,31 @@ import {
 
 type Db = PrismaClient;
 
-export async function getProductUnitCostCents(db: Db, productId: string): Promise<number> {
-  const product = await db.product.findUnique({
-    where: { id: productId },
-    include: {
-      packaging: true,
-      recipe: {
-        include: {
-          items: {
-            include: {
-              material: {
-                select: {
-                  unitPriceCents: true,
-                  subcategory: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
+type ProductForCost = {
+  packaging: {
+    id: string;
+    label: string;
+    netWeightG: number;
+    unitsPerBox: number;
+  } | null;
+  recipe: {
+    yieldKg: number;
+    items: Array<{
+      id: string;
+      itemType: string;
+      materialId: string | null;
+      packagingId: string | null;
+      quantity: number;
+      unit: string;
+      notes: string | null;
+      material: { unitPriceCents: number; subcategory: string | null } | null;
+    }>;
+  } | null;
+};
 
-  if (!product?.recipe || !product.packaging) return 0;
+/** Zaten yüklenmiş ürün + reçeteden kutu maliyetini hesaplar; ek sorgu yok. */
+export function productUnitCostCents(product: ProductForCost): number {
+  if (!product.recipe || !product.packaging) return 0;
 
   const recipe = product.recipe;
   const packaging = product.packaging;
@@ -88,4 +90,50 @@ export async function getProductUnitCostCents(db: Db, productId: string): Promis
   );
 
   return cost.perBoxCents;
+}
+
+const costInclude = {
+  packaging: true,
+  recipe: {
+    include: {
+      items: {
+        include: {
+          material: {
+            select: {
+              unitPriceCents: true,
+              subcategory: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+export async function getProductUnitCostCents(db: Db, productId: string): Promise<number> {
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    include: costInclude,
+  });
+  if (!product) return 0;
+  return productUnitCostCents(product);
+}
+
+/** Benzersiz ürün kimlikleri için birim maliyeti tek sorguda döner. */
+export async function getProductUnitCostCentsMap(
+  db: Db,
+  productIds: string[],
+): Promise<Map<string, number>> {
+  const unique = [...new Set(productIds)];
+  const result = new Map<string, number>();
+  if (unique.length === 0) return result;
+
+  const products = await db.product.findMany({
+    where: { id: { in: unique } },
+    include: costInclude,
+  });
+  for (const product of products) {
+    result.set(product.id, productUnitCostCents(product));
+  }
+  return result;
 }

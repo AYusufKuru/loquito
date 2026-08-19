@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -102,7 +104,7 @@ export function PurchaseOrdersSection({
     clearErrors();
     try {
       const q = statusFilter ? `?status=${statusFilter}` : "";
-      const res = await fetch(`/api/stock/purchase-orders${q}`);
+      const res = await apiFetch(`/api/stock/purchase-orders${q}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);
@@ -177,7 +179,7 @@ export function PurchaseOrdersSection({
     };
 
     try {
-      const res = await fetch("/api/stock/purchase-orders", {
+      const res = await apiFetch("/api/stock/purchase-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -203,7 +205,7 @@ export function PurchaseOrdersSection({
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch(`/api/stock/purchase-orders/${selected.id}`, {
+      const res = await apiFetch(`/api/stock/purchase-orders/${selected.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -253,7 +255,7 @@ export function PurchaseOrdersSection({
     };
 
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/stock/purchase-orders/${selected.id}/receive`,
         {
           method: "POST",

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -61,7 +63,7 @@ export function MaterialsSection({ initialMonth, labels }: MaterialsSectionProps
     clearErrors();
     try {
       const q = buildReportQuery(filter);
-      const res = await fetch(`/api/reports/materials?${q}`);
+      const res = await apiFetch(`/api/reports/materials?${q}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);

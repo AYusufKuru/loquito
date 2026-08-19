@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -33,7 +35,7 @@ export function NotificationsSection({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/settings/factory");
+      const res = await apiFetch("/api/settings/factory");
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
       const notificationGroup = (data.groups ?? []).find(
@@ -75,7 +77,7 @@ export function NotificationsSection({
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/settings/factory", {
+      const res = await apiFetch("/api/settings/factory", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: values }),

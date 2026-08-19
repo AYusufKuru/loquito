@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +53,7 @@ export function OrderImportSection({
 
   const loadSamples = useCallback(async () => {
     try {
-      const res = await fetch("/api/ai/order-import/samples");
+      const res = await apiFetch("/api/ai/order-import/samples");
       const data = await res.json();
       if (res.ok) setSamples(data.samples);
     } catch {
@@ -74,7 +76,7 @@ export function OrderImportSection({
     setError("");
     setMessage("");
     try {
-      const res = await fetch("/api/ai/order-import/samples", {
+      const res = await apiFetch("/api/ai/order-import/samples", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sampleId }),
@@ -110,7 +112,7 @@ export function OrderImportSection({
       if (channel) form.append("channel", channel);
       if (customerId) form.append("customerId", customerId);
 
-      const res = await fetch("/api/ai/order-import/upload", {
+      const res = await apiFetch("/api/ai/order-import/upload", {
         method: "POST",
         body: form,
       });
@@ -139,7 +141,7 @@ export function OrderImportSection({
     setError("");
     setMessage("");
     try {
-      const res = await fetch("/api/ai/order-import/parse", {
+      const res = await apiFetch("/api/ai/order-import/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,7 +189,7 @@ export function OrderImportSection({
     setError("");
     setMessage("");
     try {
-      const res = await fetch("/api/ai/order-import/confirm", {
+      const res = await apiFetch("/api/ai/order-import/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -50,7 +52,7 @@ export function AllocationSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/finance/overhead?month=${month}`);
+      const res = await apiFetch(`/api/finance/overhead?month=${month}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);
@@ -77,7 +79,7 @@ export function AllocationSection({
     setMessage("");
     clearErrors();
     try {
-      const res = await fetch("/api/finance/overhead", {
+      const res = await apiFetch("/api/finance/overhead", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ method, month }),

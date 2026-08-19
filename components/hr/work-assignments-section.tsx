@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -57,7 +59,7 @@ export function WorkAssignmentsSection({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/hr/work-assignments");
+      const res = await apiFetch("/api/hr/work-assignments");
       const data = await res.json();
       if (res.ok) setAssignments(data.assignments ?? []);
     } catch {
@@ -90,7 +92,7 @@ export function WorkAssignmentsSection({
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch("/api/hr/work-assignments", {
+      const res = await apiFetch("/api/hr/work-assignments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

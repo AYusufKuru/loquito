@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +47,7 @@ export function MovementsSection({
   onMaterialUpdated,
   onLotsRefresh,
 }: MovementsSectionProps) {
-  const [movements, setMovements] = useState(initialMovements);
+  const [movements, setMovements] = useLiveState(initialMovements);
   const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
   const [type, setType] = useState<string>("in");
   const [quantity, setQuantity] = useState("");
@@ -107,7 +110,7 @@ export function MovementsSection({
     }
 
     try {
-      const res = await fetch("/api/stock/movements", {
+      const res = await apiFetch("/api/stock/movements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -4,16 +4,15 @@ import { requireApiPermission } from "@/lib/auth/api-auth";
 import {
   computeLineTotalCents,
   computeOrderTotals,
-  marginPercent,
   quantityUnitForChannel,
   syncLineQuantities,
 } from "@/lib/orders/compute";
 import { ORDER_STATUSES, UNAPPROVED_STATUSES } from "@/lib/orders/constants";
-import { getProductUnitCostCents } from "@/lib/orders/margin";
 import { loadOrderDetail } from "@/lib/orders/load";
+import { findProductsByIds } from "@/lib/orders/products";
 import { toOrderRow } from "@/lib/orders/serialize";
 import type { OrderItemInput } from "@/lib/orders/types";
-import { resolvePrice } from "@/lib/pricing/resolve";
+import { resolvePrices } from "@/lib/pricing/resolve";
 import { prisma } from "@/lib/prisma";
 
 function parseItems(input: unknown): OrderItemInput[] | null {
@@ -52,67 +51,63 @@ async function enrichItems(
   items: OrderItemInput[],
   options: { canSetPrice: boolean; asOf: Date },
 ) {
-  const enriched = [];
+  const products = await findProductsByIds(items.map((item) => item.productId));
+  const quantityUnit = quantityUnitForChannel(channel);
+  const inputMode = quantityUnit === "unit" ? "unit" : "box";
+
+  const prepared = [];
   for (const item of items) {
-    const product = await prisma.product.findUnique({
-      where: { id: item.productId },
-      include: { packaging: true },
-    });
+    const product = products.get(item.productId);
     if (!product) continue;
 
     const unitsPerBox = product.packaging?.unitsPerBox ?? 0;
-    const inputMode = quantityUnitForChannel(channel) === "unit" ? "unit" : "box";
     const synced = syncLineQuantities(
       inputMode,
       item.quantityBoxes,
       item.quantityUnits,
       unitsPerBox,
     );
+    prepared.push({ item, product, unitsPerBox, synced });
+  }
 
-    const resolved = await resolvePrice(
-      prisma,
-      customerId,
-      item.productId,
-      inputMode === "unit" ? synced.quantityUnits : synced.quantityBoxes,
-      quantityUnitForChannel(channel),
-      options.asOf,
-    );
+  const resolvedPrices = await resolvePrices(
+    prisma,
+    customerId,
+    prepared.map(({ item, synced }) => ({
+      productId: item.productId,
+      quantity: inputMode === "unit" ? synced.quantityUnits : synced.quantityBoxes,
+      quantityUnit,
+    })),
+    options.asOf,
+  );
 
+  return prepared.map(({ item, unitsPerBox, synced }, index) => {
+    const resolved = resolvedPrices[index];
     // Fiyat girme yetkisi olmayan kullanıcı çözümlenen fiyatı değiştiremez.
     const requestedUnitPrice = options.canSetPrice ? item.unitPriceCents : 0;
     const requestedBoxPrice = options.canSetPrice ? item.boxPriceCents : 0;
 
-    const unitPriceCents = requestedUnitPrice || resolved.unitPriceCents || 0;
+    const unitPriceCents = requestedUnitPrice || resolved?.unitPriceCents || 0;
     const boxPriceCents =
       requestedBoxPrice ||
-      resolved.boxPriceCents ||
+      resolved?.boxPriceCents ||
       (unitsPerBox > 0 ? Math.round(unitPriceCents * unitsPerBox) : 0);
 
-    const totalCents = computeLineTotalCents(
-      synced.quantityBoxes,
-      boxPriceCents,
-      item.discountPercent,
-    );
-
-    const costUnitCents = await getProductUnitCostCents(prisma, item.productId);
-
-    enriched.push({
+    return {
       productId: item.productId,
       quantityBoxes: synced.quantityBoxes,
       quantityUnits: synced.quantityUnits,
       unitPriceCents,
       boxPriceCents,
       discountPercent: item.discountPercent,
-      totalCents,
+      totalCents: computeLineTotalCents(
+        synced.quantityBoxes,
+        boxPriceCents,
+        item.discountPercent,
+      ),
       notes: item.notes,
-      product,
-      listUnitPriceCents: resolved.unitPriceCents,
-      listBoxPriceCents: resolved.boxPriceCents,
-      costUnitCents,
-      marginPercent: marginPercent(unitPriceCents, costUnitCents),
-    });
-  }
-  return enriched;
+    };
+  });
 }
 
 export async function GET() {

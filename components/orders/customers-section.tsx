@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import {
   validateChannelCodes,
   validateCustomerInfo,
@@ -172,7 +174,7 @@ export function CustomersSection({
   capabilities,
   labels,
 }: CustomersSectionProps) {
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useLiveState(initialCustomers);
   const [selectedId, setSelectedId] = useState(initialCustomers[0]?.id ?? "");
   const [isCreating, setIsCreating] = useState(false);
   const [detailTab, setDetailTab] = useState<DetailTab>("info");
@@ -213,7 +215,7 @@ export function CustomersSection({
   );
 
   async function loadDetail(id: string) {
-    const res = await fetch(`/api/orders/customers/${id}`);
+    const res = await apiFetch(`/api/orders/customers/${id}`);
     const data = await res.json();
     if (!res.ok) return;
     setForm(fromCustomer(data.customer));
@@ -259,7 +261,7 @@ export function CustomersSection({
     };
     try {
       if (isCreating) {
-        const res = await fetch("/api/orders/customers", {
+        const res = await apiFetch("/api/orders/customers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -273,7 +275,7 @@ export function CustomersSection({
         selectCustomer(data.customer);
         setMessage(labels.created);
       } else if (selectedId) {
-        const res = await fetch(`/api/orders/customers/${selectedId}`, {
+        const res = await apiFetch(`/api/orders/customers/${selectedId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -311,7 +313,7 @@ export function CustomersSection({
         validTo: l.validTo || null,
         notes: l.notes.trim() || null,
       }));
-      const res = await fetch(`/api/orders/customers/${selectedId}/prices`, {
+      const res = await apiFetch(`/api/orders/customers/${selectedId}/prices`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),
@@ -346,7 +348,7 @@ export function CustomersSection({
         unitPriceCents: parseBrlToCents(l.unitPrice),
         notes: l.notes.trim() || null,
       }));
-      const res = await fetch(`/api/orders/customers/${selectedId}/tiers`, {
+      const res = await apiFetch(`/api/orders/customers/${selectedId}/tiers`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),
@@ -372,7 +374,7 @@ export function CustomersSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/orders/customers/${selectedId}/channel-codes`, {
+      const res = await apiFetch(`/api/orders/customers/${selectedId}/channel-codes`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: codeLines }),
@@ -394,7 +396,7 @@ export function CustomersSection({
   async function runSkuResolve() {
     if (!selectedId) return;
     setToolSkuResult("");
-    const res = await fetch(
+    const res = await apiFetch(
       `/api/orders/resolve-sku?externalSku=${encodeURIComponent(toolSku)}&customerId=${selectedId}`,
     );
     const data = await res.json();
@@ -410,7 +412,7 @@ export function CustomersSection({
   async function runPriceResolve() {
     if (!selectedId || !toolProductId) return;
     setToolPriceResult("");
-    const res = await fetch("/api/orders/resolve-price", {
+    const res = await apiFetch("/api/orders/resolve-price", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

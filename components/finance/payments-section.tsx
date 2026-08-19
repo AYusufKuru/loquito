@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +65,7 @@ export function PaymentsSection({
     clearErrors();
     try {
       const q = overdueOnly ? "?overdueOnly=true" : "";
-      const res = await fetch(`/api/finance/payments${q}`);
+      const res = await apiFetch(`/api/finance/payments${q}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);
@@ -88,7 +90,7 @@ export function PaymentsSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/finance/payments/${paymentId}`, {
+      const res = await apiFetch(`/api/finance/payments/${paymentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markPaid: true }),
@@ -117,7 +119,7 @@ export function PaymentsSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch("/api/finance/payments", {
+      const res = await apiFetch("/api/finance/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

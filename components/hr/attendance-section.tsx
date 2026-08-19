@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +62,7 @@ export function AttendanceSection({ employees, canEdit, labels }: AttendanceSect
     setLoading(true);
     try {
       const params = new URLSearchParams({ from, to });
-      const res = await fetch(`/api/hr/attendance?${params}`);
+      const res = await apiFetch(`/api/hr/attendance?${params}`);
       const data = await res.json();
       if (res.ok) setRows(data.attendance ?? []);
     } catch {
@@ -96,7 +98,7 @@ export function AttendanceSection({ employees, canEdit, labels }: AttendanceSect
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch("/api/hr/attendance", {
+      const res = await apiFetch("/api/hr/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

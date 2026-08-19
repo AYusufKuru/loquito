@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -51,7 +53,7 @@ export function PeriodComparisonSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/finance/overhead?compareA=${monthA}&compareB=${monthB}`,
       );
       const data = await res.json();

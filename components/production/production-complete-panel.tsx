@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -58,7 +60,7 @@ export function ProductionCompletePanel({
       try {
         const results = await Promise.all(
           missingIds.map(async (materialId) => {
-            const lotRes = await fetch(
+            const lotRes = await apiFetch(
               `/api/stock/lots?materialId=${materialId}&status=released`,
             );
             const lotData = await lotRes.json();
@@ -105,7 +107,7 @@ export function ProductionCompletePanel({
     setLotsByMaterial({});
 
     async function load() {
-      const res = await fetch(`/api/production/orders/${orderId}`);
+      const res = await apiFetch(`/api/production/orders/${orderId}`);
       const data = await res.json();
       if (!active) return;
       if (!res.ok) {
@@ -154,7 +156,7 @@ export function ProductionCompletePanel({
     setActionLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/production/orders/${detail.id}/complete`, {
+      const res = await apiFetch(`/api/production/orders/${detail.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +41,7 @@ export function AuditLogSection({ labels }: AuditLogSectionProps) {
       if (from) params.set("from", from);
       if (to) params.set("to", to);
 
-      const res = await fetch(`/api/audit?${params}`);
+      const res = await apiFetch(`/api/audit?${params}`);
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || labels.loadError);

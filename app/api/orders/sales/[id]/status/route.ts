@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/auth/api-auth";
 import { recordAudit } from "@/lib/audit/service";
 import { getSession } from "@/lib/auth/session";
-import { loadOrderDetail } from "@/lib/orders/load";
+import { toOrderRow } from "@/lib/orders/serialize";
 import { canTransition, type OrderStatus } from "@/lib/orders/constants";
 import { prisma } from "@/lib/prisma";
 
@@ -34,31 +34,48 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Bu durum geçişi geçerli değil." }, { status: 400 });
     }
 
-    await prisma.order.update({
-      where: { id },
-      data: {
-        status: targetStatus,
-        approvedAt: targetStatus === "approved" ? new Date() : existing.approvedAt,
-        approvedById: targetStatus === "approved" ? session.userId : existing.approvedById,
-      },
-    });
-
-    await recordAudit(prisma, {
-      userId: session.userId,
-      entityType: "order",
-      entityId: id,
-      action: "status_change",
-      changes: [
-        {
-          field: "status",
-          oldValue: existing.status,
-          newValue: targetStatus,
+    // Durum değişikliği fiyatları etkilemediği için siparişi yeniden
+    // fiyatlandırarak okumaya gerek yok; güncellenen satırın kendisi yeterli.
+    // Denetim kaydı aynı transaction'da: durum değişip iz kalmaması olmaz.
+    const updated = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id },
+        data: {
+          status: targetStatus,
+          approvedAt: targetStatus === "approved" ? new Date() : existing.approvedAt,
+          approvedById: targetStatus === "approved" ? session.userId : existing.approvedById,
         },
-      ],
+        include: {
+          customer: { select: { name: true } },
+          items: {
+            select: {
+              quantityBoxes: true,
+              quantityUnits: true,
+              product: { select: { sku: true } },
+            },
+            orderBy: { id: "asc" },
+          },
+        },
+      });
+
+      await recordAudit(tx, {
+        userId: session.userId,
+        entityType: "order",
+        entityId: id,
+        action: "status_change",
+        changes: [
+          {
+            field: "status",
+            oldValue: existing.status,
+            newValue: targetStatus,
+          },
+        ],
+      });
+
+      return order;
     });
 
-    const detail = await loadOrderDetail(id);
-    return NextResponse.json({ order: detail });
+    return NextResponse.json({ order: toOrderRow(updated) });
   } catch {
     return NextResponse.json({ error: "Durum güncellenemedi." }, { status: 500 });
   }

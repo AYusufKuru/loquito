@@ -7,6 +7,7 @@ import {
   type OrderStatus,
 } from "@/lib/orders/constants";
 import { loadOrderDetail } from "@/lib/orders/load";
+import { findProductsByIds } from "@/lib/orders/products";
 import {
   computeLineTotalCents,
   computeOrderTotals,
@@ -14,7 +15,7 @@ import {
   syncLineQuantities,
 } from "@/lib/orders/compute";
 import type { OrderItemInput } from "@/lib/orders/types";
-import { resolvePrice } from "@/lib/pricing/resolve";
+import { resolvePrices } from "@/lib/pricing/resolve";
 import { prisma } from "@/lib/prisma";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -90,54 +91,53 @@ export async function PATCH(request: Request, context: RouteContext) {
         ? Math.round(Number(body.freightCents) || 0)
         : existing.freightCents;
 
-    const enriched: Array<{
-      productId: string;
-      quantityBoxes: number;
-      quantityUnits: number;
-      unitPriceCents: number;
-      boxPriceCents: number;
-      discountPercent: number;
-      totalCents: number;
-      notes: string | null;
-    }> = [];
+    const products = await findProductsByIds(items.map((item) => item.productId));
+    const quantityUnit = quantityUnitForChannel(channel);
+    const inputMode = quantityUnit === "unit" ? "unit" : "box";
 
+    const prepared = [];
     for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
-        include: { packaging: true },
-      });
+      const product = products.get(item.productId);
       if (!product) continue;
-
       const unitsPerBox = product.packaging?.unitsPerBox ?? 0;
-      const inputMode = quantityUnitForChannel(channel) === "unit" ? "unit" : "box";
       const synced = syncLineQuantities(
         inputMode,
         item.quantityBoxes,
         item.quantityUnits,
         unitsPerBox,
       );
+      prepared.push({ item, unitsPerBox, synced });
+    }
 
+    const resolvedPrices = session.canSetPrice
+      ? []
+      : await resolvePrices(
+          prisma,
+          existing.customerId,
+          prepared.map(({ item, synced }) => ({
+            productId: item.productId,
+            quantity:
+              inputMode === "unit" ? synced.quantityUnits : synced.quantityBoxes,
+            quantityUnit,
+          })),
+          existing.orderDate,
+        );
+
+    const enriched = prepared.map(({ item, unitsPerBox, synced }, index) => {
       let unitPriceCents = item.unitPriceCents;
       let boxPriceCents = item.boxPriceCents;
 
       if (!session.canSetPrice) {
-        const resolved = await resolvePrice(
-          prisma,
-          existing.customerId,
-          item.productId,
-          inputMode === "unit" ? synced.quantityUnits : synced.quantityBoxes,
-          quantityUnitForChannel(channel),
-          existing.orderDate,
-        );
-        unitPriceCents = resolved.unitPriceCents ?? unitPriceCents;
+        const resolved = resolvedPrices[index];
+        unitPriceCents = resolved?.unitPriceCents ?? unitPriceCents;
         boxPriceCents =
-          resolved.boxPriceCents ??
+          resolved?.boxPriceCents ??
           (unitsPerBox > 0
             ? Math.round(unitPriceCents * unitsPerBox)
             : boxPriceCents);
       }
 
-      enriched.push({
+      return {
         productId: item.productId,
         quantityBoxes: synced.quantityBoxes,
         quantityUnits: synced.quantityUnits,
@@ -150,8 +150,8 @@ export async function PATCH(request: Request, context: RouteContext) {
           item.discountPercent,
         ),
         notes: item.notes ?? null,
-      });
-    }
+      };
+    });
 
     const { totalCents } = computeOrderTotals(enriched, discountCents, freightCents);
 
@@ -169,32 +169,34 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
-    await prisma.orderItem.deleteMany({ where: { orderId: id } });
-    await prisma.order.update({
-      where: { id },
-      data: {
-        status: newStatus,
-        channel,
-        deliveryDate: body.deliveryDate
-          ? new Date(body.deliveryDate)
-          : existing.deliveryDate,
-        paymentTerms:
-          typeof body.paymentTerms === "string"
-            ? body.paymentTerms.trim() || null
-            : existing.paymentTerms,
-        freightType:
-          typeof body.freightType === "string"
-            ? body.freightType.trim() || null
-            : existing.freightType,
-        totalCents,
-        discountCents,
-        freightCents,
-        notes:
-          typeof body.notes === "string" ? body.notes.trim() || null : existing.notes,
-        items: {
-          create: enriched,
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId: id } });
+      await tx.order.update({
+        where: { id },
+        data: {
+          status: newStatus,
+          channel,
+          deliveryDate: body.deliveryDate
+            ? new Date(body.deliveryDate)
+            : existing.deliveryDate,
+          paymentTerms:
+            typeof body.paymentTerms === "string"
+              ? body.paymentTerms.trim() || null
+              : existing.paymentTerms,
+          freightType:
+            typeof body.freightType === "string"
+              ? body.freightType.trim() || null
+              : existing.freightType,
+          totalCents,
+          discountCents,
+          freightCents,
+          notes:
+            typeof body.notes === "string" ? body.notes.trim() || null : existing.notes,
+          items: {
+            create: enriched,
+          },
         },
-      },
+      });
     });
 
     const detail = await loadOrderDetail(id);

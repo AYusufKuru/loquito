@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -54,8 +56,8 @@ export function StatementMatchingSection({
     clearErrors();
     try {
       const [allRes, unmatchedRes] = await Promise.all([
-        fetch("/api/finance/statements"),
-        fetch("/api/finance/statements?unmatchedOnly=true"),
+        apiFetch("/api/finance/statements"),
+        apiFetch("/api/finance/statements?unmatchedOnly=true"),
       ]);
       const allData = await allRes.json();
       const unmatchedData = await unmatchedRes.json();
@@ -87,7 +89,7 @@ export function StatementMatchingSection({
     try {
       const form = new FormData();
       form.append("file", file!);
-      const res = await fetch("/api/finance/statements", {
+      const res = await apiFetch("/api/finance/statements", {
         method: "POST",
         body: form,
       });
@@ -112,7 +114,7 @@ export function StatementMatchingSection({
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch("/api/finance/statements/demo", {
+      const res = await apiFetch("/api/finance/statements/demo", {
         method: "POST",
       });
       const data = await res.json();
@@ -146,7 +148,7 @@ export function StatementMatchingSection({
     let ok = 0;
     try {
       for (const id of selected) {
-        const res = await fetch(`/api/finance/receipts/${id}`, {
+        const res = await apiFetch(`/api/finance/receipts/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ approve: true }),
@@ -168,7 +170,7 @@ export function StatementMatchingSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/finance/receipts/${id}`, {
+      const res = await apiFetch(`/api/finance/receipts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ approve: true }),

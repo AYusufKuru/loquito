@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -32,7 +34,7 @@ export function QaSection({ labels }: QaSectionProps) {
 
   const loadSamples = useCallback(async () => {
     try {
-      const res = await fetch("/api/ai/qa");
+      const res = await apiFetch("/api/ai/qa");
       if (!res.ok) return;
       const data = await res.json();
       setSamples(data.samples ?? []);
@@ -54,7 +56,7 @@ export function QaSection({ labels }: QaSectionProps) {
     setInput("");
 
     try {
-      const res = await fetch("/api/ai/qa", {
+      const res = await apiFetch("/api/ai/qa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q }),

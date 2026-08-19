@@ -5,6 +5,10 @@ import { getSession } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/permissions";
 import { getLocale, setServerLocale } from "@/lib/i18n";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 export default async function AppLayout({
   children,
 }: {

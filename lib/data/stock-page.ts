@@ -1,8 +1,8 @@
 import {
   buildFinishedStockMatrix,
-  computeFinishedStockSummary,
   listFinishedStock,
   listReservations,
+  summarizeFinishedStock,
 } from "@/lib/finished-stock/service";
 import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
 import { prisma } from "@/lib/prisma";
@@ -24,7 +24,6 @@ export async function getStockPageData() {
         quarantineLotCount,
         finishedRows,
         finishedMatrix,
-        finishedSummary,
         finishedReservations,
         reserveOrders,
       ] = await Promise.all([
@@ -70,7 +69,6 @@ export async function getStockPageData() {
         }),
         listFinishedStock(prisma),
         buildFinishedStockMatrix(prisma),
-        computeFinishedStockSummary(prisma),
         listReservations(prisma),
         prisma.order.findMany({
           where: {
@@ -81,6 +79,8 @@ export async function getStockPageData() {
           take: 50,
         }),
       ]);
+
+      const finishedSummary = summarizeFinishedStock(finishedRows);
 
       return {
         materials,

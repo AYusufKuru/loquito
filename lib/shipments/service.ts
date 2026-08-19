@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { consumeFinishedStockForShipment } from "@/lib/finished-stock/service";
 
@@ -11,7 +11,7 @@ import {
 import { shipmentInclude } from "./serialize";
 import type { OrderShippingProgress, ShipmentItemInput } from "./types";
 
-type Db = PrismaClient;
+type Db = PrismaClient | Prisma.TransactionClient;
 
 const SHIPPABLE_ORDER_STATUSES = ["approved", "in_production", "ready_ship", "shipped"];
 
@@ -243,91 +243,92 @@ export async function updateShipment(
   });
 }
 
-export async function dispatchShipment(db: Db, id: string) {
-  const shipment = await db.shipment.findUnique({
-    where: { id },
-    include: { items: { include: { orderItem: true } } },
-  });
-  if (!shipment) throw new Error("Sevkiyat bulunamadı.");
-
-  if (shipment.status === "in_transit" || shipment.status === "delivered") {
-    throw new Error("Bu sevkiyat zaten yola çıkmış veya teslim edilmiş.");
-  }
-
-  const checklist = {
-    checkStockReserved: shipment.checkStockReserved,
-    checkLotExpiry: shipment.checkLotExpiry,
-    checkLabels: shipment.checkLabels,
-    checkQuantities: shipment.checkQuantities,
-    checkBoxCount: shipment.checkBoxCount,
-    checkDocuments: shipment.checkDocuments,
-    checkDamage: shipment.checkDamage,
-  };
-
-  if (!isChecklistComplete(checklist)) {
-    throw new Error("Sevk öncesi kontrol listesi tamamlanmalı.");
-  }
-
-  if (!shipment.carrierName?.trim()) {
-    throw new Error("Taşıyıcı firma bilgisi gerekli.");
-  }
-
-  for (const item of shipment.items) {
-    const stockId = await consumeFinishedStockForShipment(
-      db,
-      shipment.orderId,
-      item.orderItemId,
-      item.unitCount,
-      item.lotNo,
-    );
-
-    await db.shipmentItem.update({
-      where: { id: item.id },
-      data: { stockId },
-    });
-
-    if (item.orderItemId && item.orderItem) {
-      const boxesPerUnit =
-        item.orderItem.quantityUnits > 0
-          ? item.orderItem.quantityBoxes / item.orderItem.quantityUnits
-          : 0;
-      const shippedBoxes = boxesPerUnit * item.unitCount;
-
-      await db.orderItem.update({
-        where: { id: item.orderItemId },
-        data: {
-          shippedUnits: { increment: item.unitCount },
-          shippedBoxes: { increment: shippedBoxes },
-        },
+export async function dispatchShipment(db: PrismaClient, id: string) {
+  return db.$transaction(
+    async (tx) => {
+      const shipment = await tx.shipment.findUnique({
+        where: { id },
+        include: { items: { include: { orderItem: true } } },
       });
-    }
-  }
+      if (!shipment) throw new Error("Sevkiyat bulunamadı.");
 
-  await db.shipment.update({
-    where: { id },
-    data: {
-      status: "in_transit",
-      actualShipDate: new Date(),
+      if (shipment.status === "in_transit" || shipment.status === "delivered") {
+        throw new Error("Bu sevkiyat zaten yola çıkmış veya teslim edilmiş.");
+      }
+
+      const checklist = {
+        checkStockReserved: shipment.checkStockReserved,
+        checkLotExpiry: shipment.checkLotExpiry,
+        checkLabels: shipment.checkLabels,
+        checkQuantities: shipment.checkQuantities,
+        checkBoxCount: shipment.checkBoxCount,
+        checkDocuments: shipment.checkDocuments,
+        checkDamage: shipment.checkDamage,
+      };
+
+      if (!isChecklistComplete(checklist)) {
+        throw new Error("Sevk öncesi kontrol listesi tamamlanmalı.");
+      }
+
+      if (!shipment.carrierName?.trim()) {
+        throw new Error("Taşıyıcı firma bilgisi gerekli.");
+      }
+
+      for (const item of shipment.items) {
+        const stockId = await consumeFinishedStockForShipment(
+          tx,
+          shipment.orderId,
+          item.orderItemId,
+          item.unitCount,
+          item.lotNo,
+        );
+
+        await tx.shipmentItem.update({
+          where: { id: item.id },
+          data: { stockId },
+        });
+
+        if (item.orderItemId && item.orderItem) {
+          const boxesPerUnit =
+            item.orderItem.quantityUnits > 0
+              ? item.orderItem.quantityBoxes / item.orderItem.quantityUnits
+              : 0;
+          const shippedBoxes = boxesPerUnit * item.unitCount;
+
+          await tx.orderItem.update({
+            where: { id: item.orderItemId },
+            data: {
+              shippedUnits: { increment: item.unitCount },
+              shippedBoxes: { increment: shippedBoxes },
+            },
+          });
+        }
+      }
+
+      const progress = await getOrderShippingProgress(tx, shipment.orderId);
+      if (progress?.isFullyShipped) {
+        await tx.order.update({
+          where: { id: shipment.orderId },
+          data: { status: "shipped" },
+        });
+      } else if (progress && progress.totalShippedUnits > 0) {
+        await tx.order.update({
+          where: { id: shipment.orderId },
+          data: { status: "ready_ship" },
+        });
+      }
+
+      return tx.shipment.update({
+        where: { id },
+        data: {
+          status: "in_transit",
+          actualShipDate: new Date(),
+        },
+        include: shipmentInclude,
+      });
     },
-  });
-
-  const progress = await getOrderShippingProgress(db, shipment.orderId);
-  if (progress?.isFullyShipped) {
-    await db.order.update({
-      where: { id: shipment.orderId },
-      data: { status: "shipped" },
-    });
-  } else if (progress && progress.totalShippedUnits > 0) {
-    await db.order.update({
-      where: { id: shipment.orderId },
-      data: { status: "ready_ship" },
-    });
-  }
-
-  return db.shipment.findUnique({
-    where: { id },
-    include: shipmentInclude,
-  });
+    { timeout: 20_000 },
+  );
 }
 
 export async function listShipments(db: Db, filters?: { orderId?: string; status?: string }) {

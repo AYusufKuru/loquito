@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import {
   validateCreateShipment,
   validateDispatchShipment,
@@ -63,7 +65,7 @@ export function ShipmentsSection({
   canEdit,
   labels,
 }: ShipmentsSectionProps) {
-  const [shipments, setShipments] = useState(initialShipments);
+  const [shipments, setShipments] = useLiveState(initialShipments);
   const [selectedOrderId, setSelectedOrderId] = useState(shippableOrders[0]?.id ?? "");
   const [progress, setProgress] = useState<OrderShippingProgress | null>(null);
   const [lineDrafts, setLineDrafts] = useState<LineDraft[]>([]);
@@ -109,7 +111,7 @@ export function ShipmentsSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/shipments/orders/${orderId}/progress`);
+      const res = await apiFetch(`/api/shipments/orders/${orderId}/progress`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);
@@ -142,7 +144,7 @@ export function ShipmentsSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/shipments/${id}`);
+      const res = await apiFetch(`/api/shipments/${id}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);
@@ -179,7 +181,7 @@ export function ShipmentsSection({
   }, [labels.connectionError, labels.loadError, clearErrors, showApiError, showError]);
 
   const refreshList = useCallback(async () => {
-    const res = await fetch("/api/shipments");
+    const res = await apiFetch("/api/shipments");
     const data = await res.json();
     if (res.ok) setShipments(data.shipments);
   }, []);
@@ -217,7 +219,7 @@ export function ShipmentsSection({
           lotNo: l.lotNo.trim() || null,
         }));
 
-      const res = await fetch("/api/shipments", {
+      const res = await apiFetch("/api/shipments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -248,7 +250,7 @@ export function ShipmentsSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/shipments/${detail.id}`, {
+      const res = await apiFetch(`/api/shipments/${detail.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
@@ -307,7 +309,7 @@ export function ShipmentsSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/shipments/${detail.id}/dispatch`, { method: "POST" });
+      const res = await apiFetch(`/api/shipments/${detail.id}/dispatch`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.dispatchError);

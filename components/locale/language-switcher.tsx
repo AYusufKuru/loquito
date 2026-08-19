@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useState } from "react";
 
 import type { Locale } from "@/lib/i18n";
@@ -19,7 +21,7 @@ export function LanguageSwitcher({
     if (locale === currentLocale || loading) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/locale", {
+      const res = await apiFetch("/api/locale", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ locale }),

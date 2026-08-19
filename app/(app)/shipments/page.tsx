@@ -9,6 +9,8 @@ import { serializeShipment } from "@/lib/shipments/serialize";
 import { listShipments, listShippableOrders } from "@/lib/shipments/service";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export default async function ShipmentsPage() {
   const { permissions } = await requireModuleAccess("shipments");

@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -131,7 +134,7 @@ export function MaterialsSection({
   capabilities,
   labels,
 }: MaterialsSectionProps) {
-  const [materials, setMaterials] = useState(initialMaterials);
+  const [materials, setMaterials] = useLiveState(initialMaterials);
   const [tab, setTab] = useState<MaterialCategory>("raw");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
@@ -201,7 +204,7 @@ export function MaterialsSection({
 
     try {
       if (isCreating) {
-        const res = await fetch("/api/stock/materials", {
+        const res = await apiFetch("/api/stock/materials", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -215,7 +218,7 @@ export function MaterialsSection({
         selectMaterial(data.material);
         setMessage(labels.created);
       } else if (selected) {
-        const res = await fetch(`/api/stock/materials/${selected.id}`, {
+        const res = await apiFetch(`/api/stock/materials/${selected.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -244,7 +247,7 @@ export function MaterialsSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/stock/materials/${selected.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/stock/materials/${selected.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.deleteError);

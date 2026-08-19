@@ -4,6 +4,8 @@ import { FIXED_EXPENSE_DEMO_MONTH } from "@/lib/finance/constants";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export default async function ReportsPage() {
   await requireModuleAccess("reports");

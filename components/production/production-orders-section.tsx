@@ -16,6 +16,8 @@ import { KanbanColumn } from "@/components/ui/kanban-column";
 import { Input } from "@/components/ui/input";
 import { WorkflowStrip } from "@/components/ui/workflow-strip";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import {
   validateProductionComplete,
   validateProductionStart,
@@ -75,7 +77,7 @@ export function ProductionOrdersSection({
   canEdit,
   labels,
 }: ProductionOrdersSectionProps) {
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useLiveState(initialOrders);
   const [selectedId, setSelectedId] = useState("");
   const [detail, setDetail] = useState<SerializedProductionOrder | null>(null);
   const [lotsByMaterial, setLotsByMaterial] = useState<Record<string, LotOption[]>>({});
@@ -134,7 +136,7 @@ export function ProductionOrdersSection({
       try {
         const results = await Promise.all(
           missingIds.map(async (materialId) => {
-            const lotRes = await fetch(
+            const lotRes = await apiFetch(
               `/api/stock/lots?materialId=${materialId}&status=released`,
             );
             const lotData = await lotRes.json();
@@ -210,7 +212,7 @@ export function ProductionOrdersSection({
     setActionLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/production/orders/${detail.id}/start`, {
+      const res = await apiFetch(`/api/production/orders/${detail.id}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lineId: assignLineId }),
@@ -248,17 +250,31 @@ export function ProductionOrdersSection({
       return;
     }
 
+    const rollbackOrders = orders;
+    const rollbackDetail = detail;
+
+    // Kart hemen "tamamlandı" kolonuna geçsin. producedKg ve yieldPercent
+    // sunucuda hesaplandığı için burada uydurmuyoruz; yanıt gelince doluyor.
+    syncOrder({
+      ...detail,
+      status: "completed",
+      statusLabel: PRODUCTION_STATUS_LABELS.completed,
+      producedUnits: Number(producedUnits),
+      scrapKg: Number(scrapKg) || 0,
+      yieldPercent: null,
+    });
+
     setActionLoading(true);
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch(`/api/production/orders/${detail.id}/complete`, {
+      const res = await apiFetch(`/api/production/orders/${rollbackDetail.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           producedUnits: Number(producedUnits),
           scrapKg: Number(scrapKg) || 0,
-          consumptions: detail.consumptions.map((c) => ({
+          consumptions: rollbackDetail.consumptions.map((c) => ({
             consumptionId: c.id,
             actualQty: Number(consumptionInputs[c.id]?.actualQty ?? c.plannedQty),
             lotId: consumptionInputs[c.id]?.lotId || null,
@@ -267,12 +283,16 @@ export function ProductionOrdersSection({
       });
       const data = await res.json();
       if (!res.ok) {
+        setOrders(rollbackOrders);
+        setDetail(rollbackDetail);
         showApiError(data, labels.completeError);
         return;
       }
       syncOrder(data.order);
       setMessage(labels.completed);
     } catch {
+      setOrders(rollbackOrders);
+      setDetail(rollbackDetail);
       showError(labels.connectionError);
     } finally {
       setActionLoading(false);

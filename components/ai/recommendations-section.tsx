@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -55,7 +57,7 @@ export function RecommendationsSection({ labels }: RecommendationsSectionProps) 
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/ai/recommendations");
+      const res = await apiFetch("/api/ai/recommendations");
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
       setReport(data.report);

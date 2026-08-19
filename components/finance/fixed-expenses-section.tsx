@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import {
   validateFixedExpenseForm,
   validateExpenseAmount,
@@ -58,8 +60,8 @@ export function FixedExpensesSection({
   labels,
 }: FixedExpensesSectionProps) {
   const [month, setMonth] = useState(initialMonth);
-  const [expenses, setExpenses] = useState(initialExpenses);
-  const [totalCents, setTotalCents] = useState(initialTotalCents);
+  const [expenses, setExpenses] = useLiveState(initialExpenses);
+  const [totalCents, setTotalCents] = useLiveState(initialTotalCents);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
@@ -78,7 +80,7 @@ export function FixedExpensesSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/finance/fixed-expenses?month=${month}`);
+      const res = await apiFetch(`/api/finance/fixed-expenses?month=${month}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);
@@ -112,7 +114,7 @@ export function FixedExpensesSection({
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch("/api/finance/fixed-expenses", {
+      const res = await apiFetch("/api/finance/fixed-expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -146,7 +148,7 @@ export function FixedExpensesSection({
     clearErrors();
     try {
       const body: Record<string, unknown> = { ...patch };
-      const res = await fetch(`/api/finance/fixed-expenses/${row.id}`, {
+      const res = await apiFetch(`/api/finance/fixed-expenses/${row.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -170,7 +172,7 @@ export function FixedExpensesSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/finance/fixed-expenses/${id}`, {
+      const res = await apiFetch(`/api/finance/fixed-expenses/${id}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -192,7 +194,7 @@ export function FixedExpensesSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch("/api/finance/overhead", {
+      const res = await apiFetch("/api/finance/overhead", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

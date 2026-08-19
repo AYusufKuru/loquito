@@ -10,7 +10,7 @@ import {
   generateProductionNo,
 } from "./consumption-plan";
 
-type Db = PrismaClient;
+type Db = PrismaClient | Prisma.TransactionClient;
 
 export interface CreateProductionOrderInput {
   orderId?: string | null;
@@ -90,7 +90,7 @@ export async function createProductionOrder(db: Db, input: CreateProductionOrder
   return order;
 }
 
-export async function createProductionOrdersFromOrder(db: Db, orderId: string) {
+export async function createProductionOrdersFromOrder(db: PrismaClient, orderId: string) {
   const analysis = await analyzeOrderProduction(db, orderId);
   if (!analysis) throw new Error("Sipariş bulunamadı.");
 
@@ -122,78 +122,83 @@ export async function createProductionOrdersFromOrder(db: Db, orderId: string) {
     },
   });
 
-  const created: Awaited<ReturnType<typeof createProductionOrder>>[] = [];
-  let sequence = await db.productionOrder.count();
+  return db.$transaction(
+    async (tx) => {
+      const created: Awaited<ReturnType<typeof createProductionOrder>>[] = [];
+      let sequence = await tx.productionOrder.count();
 
-  for (const item of items) {
-    const line = analysis.lines.find((l) => l.productId === item.productId);
-    if (!line || line.batchesNeeded <= 0) continue;
+      for (const item of items) {
+        const line = analysis.lines.find((l) => l.productId === item.productId);
+        if (!line || line.batchesNeeded <= 0) continue;
 
-    const product = item.product;
-    if (!product.recipe || !product.packaging) continue;
+        const product = item.product;
+        if (!product.recipe || !product.packaging) continue;
 
-    const bpp = boxesPerBatchForRecipe(
-      product.recipe.yieldKg,
-      product.packaging.netWeightG,
-    );
-    const plannedConsumptions = buildPlannedConsumptions(
-      product.recipe,
-      product.packagingId!,
-      bpp,
-    );
+        const bpp = boxesPerBatchForRecipe(
+          product.recipe.yieldKg,
+          product.packaging.netWeightG,
+        );
+        const plannedConsumptions = buildPlannedConsumptions(
+          product.recipe,
+          product.packagingId!,
+          bpp,
+        );
 
-    for (let batch = 0; batch < line.batchesNeeded; batch++) {
-      sequence += 1;
-      const productionNo = generateProductionNo(sequence);
-      const lotNo = generateProductionLotNo(productionNo, batch + 1);
+        for (let batch = 0; batch < line.batchesNeeded; batch++) {
+          sequence += 1;
+          const productionNo = generateProductionNo(sequence);
+          const lotNo = generateProductionLotNo(productionNo, batch + 1);
 
-      const po = await db.productionOrder.create({
-        data: {
-          productionNo,
-          lotNo,
-          orderId,
-          productId: product.id,
-          recipeId: product.recipeId!,
-          status: "planned",
-          plannedKg: product.recipe.yieldKg,
-          consumptions: {
-            create: plannedConsumptions.map((c) => ({
-              materialId: c.materialId,
-              plannedQty: c.plannedQty,
-              unit: c.unit,
-            })),
-          },
-        },
-        include: productionOrderInclude,
+          const po = await tx.productionOrder.create({
+            data: {
+              productionNo,
+              lotNo,
+              orderId,
+              productId: product.id,
+              recipeId: product.recipeId!,
+              status: "planned",
+              plannedKg: product.recipe.yieldKg,
+              consumptions: {
+                create: plannedConsumptions.map((c) => ({
+                  materialId: c.materialId,
+                  plannedQty: c.plannedQty,
+                  unit: c.unit,
+                })),
+              },
+            },
+            include: productionOrderInclude,
+          });
+          created.push(po);
+        }
+      }
+
+      if (created.length === 0) {
+        const fulfilledFromStock = analysis.lines.every(
+          (line) => line.toProduceUnits === 0 && line.fromStockUnits >= line.requiredUnits,
+        );
+
+        if (!fulfilledFromStock) {
+          throw new Error("Üretim gerektiren kalem yok veya stoktan karşılanıyor.");
+        }
+
+        await reserveStockForOrder(tx, orderId);
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: "ready_ship" },
+        });
+
+        return created;
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: { status: "in_production" },
       });
-      created.push(po);
-    }
-  }
 
-  if (created.length === 0) {
-    const fulfilledFromStock = analysis.lines.every(
-      (line) => line.toProduceUnits === 0 && line.fromStockUnits >= line.requiredUnits,
-    );
-
-    if (!fulfilledFromStock) {
-      throw new Error("Üretim gerektiren kalem yok veya stoktan karşılanıyor.");
-    }
-
-    await reserveStockForOrder(db, orderId);
-    await db.order.update({
-      where: { id: orderId },
-      data: { status: "ready_ship" },
-    });
-
-    return created;
-  }
-
-  await db.order.update({
-    where: { id: orderId },
-    data: { status: "in_production" },
-  });
-
-  return created;
+      return created;
+    },
+    { timeout: 30_000 },
+  );
 }
 
 export const productionOrderInclude = {

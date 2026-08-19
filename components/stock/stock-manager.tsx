@@ -2,6 +2,9 @@
 
 import { useCallback, useState } from "react";
 
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
+
 import { PurchaseOrdersSection } from "@/components/stock/purchase-orders-section";
 import { FinishedGoodsSection } from "@/components/stock/finished-goods-section";
 import { AlertsSummary } from "@/components/stock/alerts-summary";
@@ -67,13 +70,13 @@ export function StockManager({
   labels,
 }: StockManagerProps) {
   const [tab, setTab] = useState<StockTab>("overview");
-  const [materials, setMaterials] = useState(initialMaterials);
-  const [lots, setLots] = useState(initialLots);
-  const [summary, setSummary] = useState(initialSummary);
+  const [materials, setMaterials] = useLiveState(initialMaterials);
+  const [lots, setLots] = useLiveState(initialLots);
+  const [summary, setSummary] = useLiveState(initialSummary);
 
   const refreshLots = useCallback(async () => {
     try {
-      const res = await fetch("/api/stock/lots");
+      const res = await apiFetch("/api/stock/lots");
       const data = await res.json();
       if (res.ok) setLots(data.lots);
     } catch {
@@ -83,7 +86,7 @@ export function StockManager({
 
   const refreshSummary = useCallback(async () => {
     try {
-      const res = await fetch("/api/stock/summary");
+      const res = await apiFetch("/api/stock/summary");
       const data = await res.json();
       if (res.ok) setSummary(data.summary);
     } catch {

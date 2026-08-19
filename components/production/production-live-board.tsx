@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -126,7 +128,7 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
 
   const refreshBoard = useCallback(async () => {
     try {
-      const res = await fetch("/api/production/live", { cache: "no-store" });
+      const res = await apiFetch("/api/production/live", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         showError(data.error || labels.liveError);
@@ -177,7 +179,7 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
     setActionLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/production/orders/${orderId}/track`, {
+      const res = await apiFetch(`/api/production/orders/${orderId}/track`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -195,7 +197,7 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
     setActionLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/production/orders/${orderId}/track`, {
+      const res = await apiFetch(`/api/production/orders/${orderId}/track`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -213,7 +215,7 @@ export function ProductionLiveBoard({ canEdit, labels }: ProductionLiveBoardProp
       return;
     }
     try {
-      const res = await fetch(`/api/production/lines/${lineId}/downtime`, {
+      const res = await apiFetch(`/api/production/lines/${lineId}/downtime`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(

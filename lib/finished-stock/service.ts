@@ -9,7 +9,7 @@ import type {
   FinishedStockSummary,
 } from "./types";
 
-type Db = PrismaClient;
+type Db = PrismaClient | Prisma.TransactionClient;
 
 const stockInclude = {
   flavor: { select: { code: true, namePt: true } },
@@ -37,49 +37,33 @@ export async function getReservedQtyForPair(
   return result._sum.quantity ?? 0;
 }
 
-async function estimateUnitCostCents(
-  db: Db,
-  flavorId: string,
-  packagingId: string,
-  productId: string | null,
-): Promise<number> {
-  let product =
-    productId
-      ? await db.product.findUnique({
-          where: { id: productId },
-          include: {
-            recipe: {
-              include: {
-                items: {
-                  include: {
-                    material: { select: { id: true, code: true, name: true, unitPriceCents: true, subcategory: true } },
-                  },
-                },
-              },
-            },
-            packaging: { select: { netWeightG: true } },
-          },
-        })
-      : null;
-
-  if (!product) {
-    product = await db.product.findFirst({
-      where: { flavorId, packagingId, isActive: true },
-      include: {
-        recipe: {
-          include: {
-            items: {
-              include: {
-                material: { select: { id: true, unitPriceCents: true, subcategory: true } },
-              },
+const costProductInclude = {
+  recipe: {
+    include: {
+      items: {
+        include: {
+          material: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              unitPriceCents: true,
+              subcategory: true,
             },
           },
         },
-        packaging: { select: { netWeightG: true } },
       },
-    });
-  }
+    },
+  },
+  packaging: { select: { netWeightG: true } },
+} satisfies Prisma.ProductInclude;
 
+type CostProduct = Prisma.ProductGetPayload<{ include: typeof costProductInclude }>;
+
+function unitCostFromProduct(
+  product: CostProduct | null,
+  packagingId: string,
+): number {
   if (!product?.recipe || !product.packaging) return 0;
 
   const prices = new Map<string, number>();
@@ -125,27 +109,117 @@ async function estimateUnitCostCents(
   return bpp > 0 ? Math.round(batchCost / bpp) : 0;
 }
 
+type StockRow = Prisma.FinishedGoodsStockGetPayload<{ include: typeof stockInclude }>;
+
+/** Stok kaydı başına aktif rezervasyon toplamı, tek sorguda. */
+async function loadReservedQtyByStock(
+  db: Db,
+  stockIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (stockIds.length === 0) return result;
+
+  const grouped = await db.finishedGoodsReservation.groupBy({
+    by: ["stockId"],
+    where: { stockId: { in: stockIds }, status: "active" },
+    _sum: { quantity: true },
+  });
+  for (const group of grouped) {
+    if (group.stockId) result.set(group.stockId, group._sum.quantity ?? 0);
+  }
+  return result;
+}
+
+/**
+ * Satırların birim maliyetini iki sorguda hesaplar: ürün kimliğiyle doğrudan
+ * eşleşenler ve kimliği olmayan/bulunamayanlar için lezzet × gramaj yedeği.
+ * Aynı ürün+gramaj kombinasyonu birden çok lotta tekrar ettiği için sonuç
+ * kombinasyon bazında tekilleştirilir.
+ */
+async function loadUnitCostByRow(
+  db: Db,
+  rows: StockRow[],
+): Promise<Map<string, number>> {
+  const costByRow = new Map<string, number>();
+  if (rows.length === 0) return costByRow;
+
+  const productIds = [
+    ...new Set(rows.map((row) => row.productId).filter((id): id is string => id != null)),
+  ];
+  const flavorIds = [...new Set(rows.map((row) => row.flavorId))];
+  const packagingIds = [...new Set(rows.map((row) => row.packagingId))];
+
+  const [byId, byPairCandidates] = await Promise.all([
+    productIds.length > 0
+      ? db.product.findMany({
+          where: { id: { in: productIds } },
+          include: costProductInclude,
+        })
+      : Promise.resolve([]),
+    db.product.findMany({
+      where: {
+        flavorId: { in: flavorIds },
+        packagingId: { in: packagingIds },
+        isActive: true,
+      },
+      include: costProductInclude,
+    }),
+  ]);
+
+  const productById = new Map(byId.map((product) => [product.id, product]));
+  const productByPair = new Map<string, CostProduct>();
+  for (const product of byPairCandidates) {
+    if (!product.flavorId || !product.packagingId) continue;
+    const key = `${product.flavorId}:${product.packagingId}`;
+    if (!productByPair.has(key)) productByPair.set(key, product);
+  }
+
+  const costByCombination = new Map<string, number>();
+  for (const row of rows) {
+    const product =
+      (row.productId ? productById.get(row.productId) : undefined) ??
+      productByPair.get(`${row.flavorId}:${row.packagingId}`) ??
+      null;
+
+    const combinationKey = `${product?.id ?? "none"}:${row.packagingId}`;
+    let cost = costByCombination.get(combinationKey);
+    if (cost === undefined) {
+      cost = unitCostFromProduct(product, row.packagingId);
+      costByCombination.set(combinationKey, cost);
+    }
+    costByRow.set(row.id, cost);
+  }
+
+  return costByRow;
+}
+
 export async function listFinishedStock(db: Db): Promise<FinishedStockRow[]> {
   const rows = await db.finishedGoodsStock.findMany({
     include: stockInclude,
     orderBy: [{ flavor: { sortOrder: "asc" } }, { packaging: { sortOrder: "asc" } }],
   });
+  if (rows.length === 0) return [];
 
-  return Promise.all(rows.map((row) => serializeRow(db, row)));
+  const [reservedByStock, unitCostByRow] = await Promise.all([
+    loadReservedQtyByStock(db, rows.map((row) => row.id)),
+    loadUnitCostByRow(db, rows),
+  ]);
+
+  return rows.map((row) =>
+    serializeRow(
+      row,
+      reservedByStock.get(row.id) ?? 0,
+      unitCostByRow.get(row.id) ?? 0,
+    ),
+  );
 }
 
-async function serializeRow(
-  db: Db,
-  row: Prisma.FinishedGoodsStockGetPayload<{ include: typeof stockInclude }>,
-): Promise<FinishedStockRow> {
-  const reservedQty = await getReservedQtyForStock(db, row.id);
+function serializeRow(
+  row: StockRow,
+  reservedQty: number,
+  unitCostCents: number,
+): FinishedStockRow {
   const availableQty = Math.max(0, row.quantity - reservedQty);
-  const unitCostCents = await estimateUnitCostCents(
-    db,
-    row.flavorId,
-    row.packagingId,
-    row.productId,
-  );
 
   return {
     id: row.id,
@@ -180,19 +254,50 @@ export async function buildFinishedStockMatrix(db: Db): Promise<FinishedStockMat
     orderBy: { sortOrder: "asc" },
   });
 
+  const flavorIds = flavors.map((flavor) => flavor.id);
+  const packagingIds = packagings.map((packaging) => packaging.id);
+
+  const [stockTotals, reservationTotals] = await Promise.all([
+    db.finishedGoodsStock.groupBy({
+      by: ["flavorId", "packagingId"],
+      where: {
+        flavorId: { in: flavorIds },
+        packagingId: { in: packagingIds },
+        status: "available",
+      },
+      _sum: { quantity: true },
+    }),
+    db.finishedGoodsReservation.groupBy({
+      by: ["flavorId", "packagingId"],
+      where: {
+        flavorId: { in: flavorIds },
+        packagingId: { in: packagingIds },
+        status: "active",
+      },
+      _sum: { quantity: true },
+    }),
+  ]);
+
+  const quantityByPair = new Map(
+    stockTotals.map((row) => [
+      `${row.flavorId}:${row.packagingId}`,
+      row._sum.quantity ?? 0,
+    ]),
+  );
+  const reservedByPair = new Map(
+    reservationTotals.map((row) => [
+      `${row.flavorId}:${row.packagingId}`,
+      row._sum.quantity ?? 0,
+    ]),
+  );
+
   const cells: FinishedStockMatrixCell[] = [];
 
   for (const flavor of flavors) {
     for (const packaging of packagings) {
-      const stocks = await db.finishedGoodsStock.findMany({
-        where: {
-          flavorId: flavor.id,
-          packagingId: packaging.id,
-          status: "available",
-        },
-      });
-      const quantity = stocks.reduce((s, r) => s + r.quantity, 0);
-      const reservedQty = await getReservedQtyForPair(db, flavor.id, packaging.id);
+      const pairKey = `${flavor.id}:${packaging.id}`;
+      const quantity = quantityByPair.get(pairKey) ?? 0;
+      const reservedQty = reservedByPair.get(pairKey) ?? 0;
 
       cells.push({
         flavorId: flavor.id,
@@ -213,7 +318,13 @@ export async function buildFinishedStockMatrix(db: Db): Promise<FinishedStockMat
 }
 
 export async function computeFinishedStockSummary(db: Db): Promise<FinishedStockSummary> {
-  const rows = await listFinishedStock(db);
+  return summarizeFinishedStock(await listFinishedStock(db));
+}
+
+/** Satırlar zaten yüklenmişse stok listesini ikinci kez taramamak için. */
+export function summarizeFinishedStock(
+  rows: FinishedStockRow[],
+): FinishedStockSummary {
   const thirtyDays = new Date();
   thirtyDays.setDate(thirtyDays.getDate() + 30);
 

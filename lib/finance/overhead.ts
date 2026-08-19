@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { PrismaClient } from "@prisma/client";
 
 import {
@@ -5,7 +6,10 @@ import {
   getFactoryCookTeamSize,
   getFactoryLaborHoursPerBatch,
 } from "@/lib/hr/labor";
-import { getAvailableFinishedUnits } from "@/lib/finished-stock/availability";
+import {
+  finishedStockKey,
+  getAvailableFinishedUnitsMap,
+} from "@/lib/finished-stock/availability";
 import { ACTIVE_ORDER_STATUSES } from "@/lib/orders/constants";
 import { boxesPerBatch } from "@/lib/recipes/cost";
 
@@ -18,12 +22,19 @@ import type { OverheadAllocationMethod } from "./types";
 
 type Db = PrismaClient;
 
-export async function getOverheadAllocationMethod(db: Db): Promise<OverheadAllocationMethod> {
+async function getOverheadAllocationMethodUncached(
+  db: Db,
+): Promise<OverheadAllocationMethod> {
   const setting = await db.factorySetting.findUnique({
     where: { key: OVERHEAD_METHOD_SETTING_KEY },
   });
   return setting?.value === "hours" ? "hours" : "kg";
 }
+
+/** Aynı istekte her sipariş analizinin yöntemi yeniden okumasını engeller. */
+export const getOverheadAllocationMethod = cache(
+  getOverheadAllocationMethodUncached,
+);
 
 export async function setOverheadAllocationMethod(
   db: Db,
@@ -52,7 +63,7 @@ export async function getMonthlyOverheadPool(db: Db, periodMonth: string): Promi
  * Siparişe dağıtılacak genel gider havuzu. Personel giderleri hariç tutulur;
  * bunlar sipariş analizinde doğrudan işçilik kalemi olarak zaten sayılır.
  */
-export async function getAllocatableOverheadPool(
+async function getAllocatableOverheadPoolUncached(
   db: Db,
   periodMonth: string,
 ): Promise<number> {
@@ -65,6 +76,8 @@ export async function getAllocatableOverheadPool(
   });
   return rows.reduce((sum, row) => sum + row.amountCents, 0);
 }
+
+export const getAllocatableOverheadPool = cache(getAllocatableOverheadPoolUncached);
 
 function lineProductionKg(
   toProduceUnits: number,
@@ -81,19 +94,42 @@ function lineProductionKg(
   return 0;
 }
 
-async function computeItemToProduce(
+interface ProduceItem {
+  quantityUnits: number;
+  quantityBoxes: number;
+  product: {
+    flavorId: string | null;
+    packagingId: string | null;
+    packaging: { unitsPerBox: number; netWeightG: number } | null;
+    recipe: { yieldKg: number } | null;
+  };
+}
+
+/**
+ * Kalemlerin lezzet × gramaj çiftleri için kullanılabilir mamul stoğunu tek
+ * seferde okur. Kalem başına sorgu atmak, ayın tamamı taranırken sorgu sayısını
+ * kalem sayısıyla doğru orantılı büyütüyordu.
+ */
+async function loadFinishedStockUnits(
   db: Db,
-  item: {
-    quantityUnits: number;
-    quantityBoxes: number;
-    product: {
-      flavorId: string | null;
-      packagingId: string | null;
-      packaging: { unitsPerBox: number; netWeightG: number } | null;
-      recipe: { yieldKg: number } | null;
-    };
-  },
-): Promise<{ toProduceUnits: number; toProduceBoxes: number; batchesNeeded: number; productionKg: number }> {
+  items: ProduceItem[],
+): Promise<Map<string, number>> {
+  const pairs: Array<{ flavorId: string; packagingId: string }> = [];
+  for (const { product } of items) {
+    if (product.flavorId && product.packagingId) {
+      pairs.push({
+        flavorId: product.flavorId,
+        packagingId: product.packagingId,
+      });
+    }
+  }
+  return getAvailableFinishedUnitsMap(db, pairs);
+}
+
+function computeItemToProduce(
+  item: ProduceItem,
+  stockUnitsByPair: Map<string, number>,
+): { toProduceUnits: number; toProduceBoxes: number; batchesNeeded: number; productionKg: number } {
   const product = item.product;
   const packaging = product.packaging;
   const recipe = product.recipe;
@@ -101,7 +137,9 @@ async function computeItemToProduce(
 
   const stockUnits =
     product.flavorId && product.packagingId
-      ? await getAvailableFinishedUnits(db, product.flavorId, product.packagingId)
+      ? stockUnitsByPair.get(
+          finishedStockKey(product.flavorId, product.packagingId),
+        ) ?? 0
       : 0;
 
   const requiredUnits = item.quantityUnits;
@@ -132,7 +170,10 @@ async function computeItemToProduce(
   return { toProduceUnits, toProduceBoxes, batchesNeeded, productionKg };
 }
 
-export async function computeMonthlyProductionKg(db: Db, periodMonth: string): Promise<number> {
+async function computeMonthlyProductionKgUncached(
+  db: Db,
+  periodMonth: string,
+): Promise<number> {
   const range = parsePeriodMonth(periodMonth);
   if (!range) return 0;
 
@@ -152,15 +193,18 @@ export async function computeMonthlyProductionKg(db: Db, periodMonth: string): P
     },
   });
 
+  const items = orders.flatMap((order) => order.items);
+  const stockUnits = await loadFinishedStockUnits(db, items);
+
   let totalKg = 0;
-  for (const order of orders) {
-    for (const item of order.items) {
-      const metrics = await computeItemToProduce(db, item);
-      totalKg += metrics.productionKg;
-    }
+  for (const item of items) {
+    totalKg += computeItemToProduce(item, stockUnits).productionKg;
   }
   return totalKg;
 }
+
+/** Rapor/analiz döngüsünde aynı ayın tüm siparişlerinin tekrar taranmasını keser. */
+export const computeMonthlyProductionKg = cache(computeMonthlyProductionKgUncached);
 
 export async function computeOrderProductionKg(db: Db, orderId: string): Promise<number> {
   const order = await db.order.findUnique({
@@ -177,10 +221,11 @@ export async function computeOrderProductionKg(db: Db, orderId: string): Promise
   });
   if (!order) return 0;
 
+  const stockUnits = await loadFinishedStockUnits(db, order.items);
+
   let totalKg = 0;
   for (const item of order.items) {
-    const metrics = await computeItemToProduce(db, item);
-    totalKg += metrics.productionKg;
+    totalKg += computeItemToProduce(item, stockUnits).productionKg;
   }
   return totalKg;
 }
@@ -204,14 +249,18 @@ export async function computeOrderLineProductionKg(
   const map = new Map<string, number>();
   if (!order) return map;
 
+  const stockUnits = await loadFinishedStockUnits(db, order.items);
+
   for (const item of order.items) {
-    const metrics = await computeItemToProduce(db, item);
-    map.set(item.productId, metrics.productionKg);
+    map.set(item.productId, computeItemToProduce(item, stockUnits).productionKg);
   }
   return map;
 }
 
-export async function computeMonthlyWorkedHours(db: Db, periodMonth: string): Promise<number> {
+async function computeMonthlyWorkedHoursUncached(
+  db: Db,
+  periodMonth: string,
+): Promise<number> {
   const range = parsePeriodMonth(periodMonth);
   if (!range) return 0;
 
@@ -237,6 +286,8 @@ export async function computeMonthlyWorkedHours(db: Db, periodMonth: string): Pr
   }
   return hours;
 }
+
+export const computeMonthlyWorkedHours = cache(computeMonthlyWorkedHoursUncached);
 
 export async function computeOrderWorkedHours(db: Db, orderId: string): Promise<number> {
   const assignments = await db.workAssignment.findMany({
@@ -264,10 +315,11 @@ export async function computeOrderWorkedHours(db: Db, orderId: string): Promise<
   });
   if (!order) return 0;
 
+  const stockUnits = await loadFinishedStockUnits(db, order.items);
+
   let batches = 0;
   for (const item of order.items) {
-    const metrics = await computeItemToProduce(db, item);
-    batches += metrics.batchesNeeded;
+    batches += computeItemToProduce(item, stockUnits).batchesNeeded;
   }
   return batches * hoursPerBatch * teamSize;
 }
@@ -346,8 +398,9 @@ export async function allocateOrderOverhead(
     });
     weights = new Map<string, number>();
     if (orderWithItems) {
+      const stockUnits = await loadFinishedStockUnits(db, orderWithItems.items);
       for (const item of orderWithItems.items) {
-        const metrics = await computeItemToProduce(db, item);
+        const metrics = computeItemToProduce(item, stockUnits);
         weights.set(
           item.productId,
           metrics.batchesNeeded * hoursPerBatch * teamSize,

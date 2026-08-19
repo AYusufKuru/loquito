@@ -1,6 +1,8 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { requireApiPermission } from "@/lib/auth/api-auth";
+import { PERMISSIONS_TAG } from "@/lib/cache/server";
 import { prisma } from "@/lib/prisma";
 import { buildPermissionRows, parsePermissionInput } from "@/lib/settings/permissions";
 
@@ -80,6 +82,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
 
       permissions = await prisma.permission.findMany({ where: { roleId: id } });
+      revalidateTag(PERMISSIONS_TAG);
     }
 
     const role = await prisma.role.update({
@@ -136,6 +139,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   await prisma.role.delete({ where: { id } });
+  revalidateTag(PERMISSIONS_TAG);
 
   return NextResponse.json({ success: true });
 }

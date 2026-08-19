@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
+import { cachedQuery, PERMISSIONS_TAG, REVALIDATE } from "@/lib/cache/server";
 import { MODULE_IDS, getModuleConfig, type ModuleId } from "@/lib/modules";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "./session";
@@ -51,7 +51,7 @@ async function loadRolePermissions(roleId: string): Promise<PermissionMap> {
       return map;
     },
     REVALIDATE.permissions,
-    ["permissions"],
+    [PERMISSIONS_TAG],
   );
 }
 

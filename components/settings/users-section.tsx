@@ -14,6 +14,8 @@ import {
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import { buildErrors, email, minLength, required } from "@/lib/forms/validation";
 import type { RoleRow, SettingsCapabilities, UserRow } from "@/lib/settings/types";
 
@@ -83,7 +85,7 @@ export function UsersSection({
   currentUserId,
   capabilities,
 }: UsersSectionProps) {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useLiveState(initialUsers);
   const [selectedId, setSelectedId] = useState(initialUsers[0]?.id ?? "");
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<UserFormState>(emptyForm(roles));
@@ -126,7 +128,7 @@ export function UsersSection({
 
     try {
       if (isCreating) {
-        const res = await fetch("/api/settings/users", {
+        const res = await apiFetch("/api/settings/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
@@ -151,7 +153,7 @@ export function UsersSection({
         };
         if (form.password) payload.password = form.password;
 
-        const res = await fetch(`/api/settings/users/${selected.id}`, {
+        const res = await apiFetch(`/api/settings/users/${selected.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -179,7 +181,7 @@ export function UsersSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/settings/users/${selected.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/settings/users/${selected.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, "İşlem başarısız.");

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -172,7 +174,7 @@ export function RecipePackagingSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/recipes/${recipeId}/packaging-template?packagingId=${packagingId}`,
       );
       const data = await res.json();
@@ -236,7 +238,7 @@ export function RecipePackagingSection({
     };
 
     try {
-      const res = await fetch(`/api/recipes/${recipeId}/packaging`, {
+      const res = await apiFetch(`/api/recipes/${recipeId}/packaging`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import {
   validatePriceListHeader,
   validatePriceListItems,
@@ -95,7 +97,7 @@ export function PriceListsSection({
   capabilities,
   labels,
 }: PriceListsSectionProps) {
-  const [lists, setLists] = useState(initialPriceLists);
+  const [lists, setLists] = useLiveState(initialPriceLists);
   const [selectedId, setSelectedId] = useState(initialPriceLists[0]?.id ?? "");
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<ListForm>(emptyListForm());
@@ -116,7 +118,7 @@ export function PriceListsSection({
 
   const loadDetail = useCallback(
     async (id: string) => {
-      const res = await fetch(`/api/orders/price-lists/${id}`);
+      const res = await apiFetch(`/api/orders/price-lists/${id}`);
       const data = await res.json();
       if (!res.ok) return;
       setForm(fromList(data.priceList));
@@ -160,7 +162,7 @@ export function PriceListsSection({
         validTo: form.validTo || null,
       };
       if (isCreating) {
-        const res = await fetch("/api/orders/price-lists", {
+        const res = await apiFetch("/api/orders/price-lists", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -175,7 +177,7 @@ export function PriceListsSection({
         setIsCreating(false);
         setMessage(labels.created);
       } else if (selectedId) {
-        const res = await fetch(`/api/orders/price-lists/${selectedId}`, {
+        const res = await apiFetch(`/api/orders/price-lists/${selectedId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -213,7 +215,7 @@ export function PriceListsSection({
           unitPriceCents: parseBrlToCents(l.unitPrice) ?? 0,
         }));
 
-      const res = await fetch(`/api/orders/price-lists/${selectedId}/items`, {
+      const res = await apiFetch(`/api/orders/price-lists/${selectedId}/items`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),

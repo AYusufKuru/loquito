@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -67,7 +69,7 @@ export function ProfitabilitySection({
     clearErrors();
     try {
       const q = buildReportQuery(filter, { groupBy });
-      const res = await fetch(`/api/reports/profitability?${q}`);
+      const res = await apiFetch(`/api/reports/profitability?${q}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);

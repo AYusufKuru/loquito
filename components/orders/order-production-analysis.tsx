@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +36,7 @@ export function OrderProductionAnalysisPanel({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    fetch(`/api/orders/sales/${orderId}/analysis`)
+    apiFetch(`/api/orders/sales/${orderId}/analysis`)
       .then((res) => res.json())
       .then((data) => {
         if (!active) return;

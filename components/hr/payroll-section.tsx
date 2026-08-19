@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +48,7 @@ export function PayrollSection({ labels }: PayrollSectionProps) {
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/hr/payroll?month=${month}`);
+      const res = await apiFetch(`/api/hr/payroll?month=${month}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);

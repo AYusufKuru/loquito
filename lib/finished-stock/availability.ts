@@ -19,7 +19,8 @@ export async function getAvailableFinishedUnits(
   return map.get(`${flavorId}:${packagingId}`) ?? 0;
 }
 
-function finishedStockKey(flavorId: string, packagingId: string): string {
+/** `getAvailableFinishedUnitsMap` sonucundaki lezzet × gramaj anahtarı. */
+export function finishedStockKey(flavorId: string, packagingId: string): string {
   return `${flavorId}:${packagingId}`;
 }
 

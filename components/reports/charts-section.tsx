@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -75,7 +77,7 @@ export function ChartsSection({ initialMonth, labels }: ChartsSectionProps) {
     clearErrors();
     try {
       const q = buildReportQuery(filter);
-      const res = await fetch(`/api/reports/charts?${q}`);
+      const res = await apiFetch(`/api/reports/charts?${q}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);

@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +22,7 @@ import {
   STATUS_TRANSITIONS,
   type PurchaseStatus,
 } from "@/lib/assets/constants";
+import { useLiveState } from "@/hooks/use-live-state";
 import type { PurchaseRequestRow, PurchaseSummary } from "@/lib/assets/types";
 import { formatBrlFromCents } from "@/lib/stock/constants";
 
@@ -64,8 +67,8 @@ export function PurchaseRequestsSection({
   canEdit,
   labels,
 }: PurchaseRequestsSectionProps) {
-  const [requests, setRequests] = useState(initialRequests);
-  const [summary, setSummary] = useState(initialSummary);
+  const [requests, setRequests] = useLiveState(initialRequests);
+  const [summary, setSummary] = useLiveState(initialSummary);
   const [statusFilter, setStatusFilter] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -79,7 +82,7 @@ export function PurchaseRequestsSection({
     setError("");
     try {
       const q = statusFilter ? `?status=${statusFilter}` : "";
-      const res = await fetch(`/api/assets/purchase-requests${q}`);
+      const res = await apiFetch(`/api/assets/purchase-requests${q}`);
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || labels.loadError);
@@ -116,7 +119,7 @@ export function PurchaseRequestsSection({
     setError("");
     setMessage("");
     try {
-      const res = await fetch("/api/assets/purchase-requests", {
+      const res = await apiFetch("/api/assets/purchase-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -168,7 +171,7 @@ export function PurchaseRequestsSection({
     setError("");
     setMessage("");
     try {
-      const res = await fetch(`/api/assets/purchase-requests/${req.id}`, {
+      const res = await apiFetch(`/api/assets/purchase-requests/${req.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

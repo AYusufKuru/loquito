@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { requireApiPermission } from "@/lib/auth/api-auth";
 import {
   buildFinishedStockMatrix,
-  computeFinishedStockSummary,
   listFinishedStock,
   listReservations,
+  summarizeFinishedStock,
 } from "@/lib/finished-stock/service";
 import { prisma } from "@/lib/prisma";
 
@@ -27,10 +27,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ reservations });
   }
 
-  const [rows, summary] = await Promise.all([
-    listFinishedStock(prisma),
-    computeFinishedStockSummary(prisma),
-  ]);
+  const rows = await listFinishedStock(prisma);
 
-  return NextResponse.json({ rows, summary });
+  return NextResponse.json({ rows, summary: summarizeFinishedStock(rows) });
 }

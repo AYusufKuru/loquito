@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import { validateEmployeeForm } from "@/lib/forms/hr-validation";
 import {
   sanitizeDecimalInput,
@@ -57,8 +59,8 @@ export function EmployeesSection({
   canEdit,
   labels,
 }: EmployeesSectionProps) {
-  const [employees, setEmployees] = useState(initialEmployees);
-  const [summary, setSummary] = useState(initialSummary);
+  const [employees, setEmployees] = useLiveState(initialEmployees);
+  const [summary, setSummary] = useLiveState(initialSummary);
   const [selectedId, setSelectedId] = useState(initialEmployees[0]?.id ?? "");
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -86,7 +88,7 @@ export function EmployeesSection({
   }, [employees, search]);
 
   const loadList = useCallback(async () => {
-    const res = await fetch("/api/hr/employees");
+    const res = await apiFetch("/api/hr/employees");
     const data = await res.json();
     if (res.ok) {
       setEmployees(data.employees);
@@ -146,7 +148,7 @@ export function EmployeesSection({
     try {
       const url = isCreating ? "/api/hr/employees" : `/api/hr/employees/${selectedId}`;
       const method = isCreating ? "POST" : "PATCH";
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

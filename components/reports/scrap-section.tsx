@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -61,7 +63,7 @@ export function ScrapSection({ initialMonth, labels }: ScrapSectionProps) {
     clearErrors();
     try {
       const q = buildReportQuery(filter);
-      const res = await fetch(`/api/reports/scrap?${q}`);
+      const res = await apiFetch(`/api/reports/scrap?${q}`);
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);

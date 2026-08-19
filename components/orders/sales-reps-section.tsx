@@ -13,6 +13,8 @@ import {
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import { validateSalesRepForm } from "@/lib/forms/orders-validation";
 import type { OrdersCapabilities, SalesRepRow } from "@/lib/pricing/types";
 
@@ -64,7 +66,7 @@ export function SalesRepsSection({
   capabilities,
   labels,
 }: SalesRepsSectionProps) {
-  const [reps, setReps] = useState(initialSalesReps);
+  const [reps, setReps] = useLiveState(initialSalesReps);
   const [selectedId, setSelectedId] = useState(initialSalesReps[0]?.id ?? "");
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<RepForm>(emptyForm());
@@ -104,7 +106,7 @@ export function SalesRepsSection({
     setMessage("");
     try {
       if (isCreating) {
-        const res = await fetch("/api/orders/sales-reps", {
+        const res = await apiFetch("/api/orders/sales-reps", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
@@ -118,7 +120,7 @@ export function SalesRepsSection({
         selectRep(data.salesRep);
         setMessage(labels.created);
       } else if (selectedId) {
-        const res = await fetch(`/api/orders/sales-reps/${selectedId}`, {
+        const res = await apiFetch(`/api/orders/sales-reps/${selectedId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),

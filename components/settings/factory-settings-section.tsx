@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -80,8 +82,8 @@ export function FactorySettingsSection({
     setLoading(true);
     try {
       const [factoryRes, linesRes] = await Promise.all([
-        fetch("/api/settings/factory"),
-        fetch("/api/settings/lines"),
+        apiFetch("/api/settings/factory"),
+        apiFetch("/api/settings/lines"),
       ]);
       if (!factoryRes.ok || !linesRes.ok) throw new Error("fetch failed");
       const factoryData = await factoryRes.json();
@@ -160,7 +162,7 @@ export function FactorySettingsSection({
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/settings/factory", {
+      const res = await apiFetch("/api/settings/factory", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: values, syncLines }),
@@ -177,7 +179,7 @@ export function FactorySettingsSection({
         dailyTargetUnits: lineEdits[line.id]?.dailyTargetUnits ?? line.dailyTargetUnits,
       }));
 
-      const linesRes = await fetch("/api/settings/lines", {
+      const linesRes = await apiFetch("/api/settings/lines", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lines: linePayload }),
@@ -201,7 +203,7 @@ export function FactorySettingsSection({
     if (!canEdit) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/settings/factory/sync-lines", { method: "POST" });
+      const res = await apiFetch("/api/settings/factory/sync-lines", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         showApiError(data, labels.syncError);

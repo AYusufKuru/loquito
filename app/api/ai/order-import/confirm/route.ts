@@ -8,7 +8,8 @@ import {
 } from "@/lib/orders/compute";
 import { ORDER_STATUSES, UNAPPROVED_STATUSES } from "@/lib/orders/constants";
 import { loadOrderDetail } from "@/lib/orders/load";
-import { resolvePrice } from "@/lib/pricing/resolve";
+import { findProductsByIds } from "@/lib/orders/products";
+import { resolvePrices } from "@/lib/pricing/resolve";
 import { prisma } from "@/lib/prisma";
 
 interface ConfirmLine {
@@ -94,14 +95,30 @@ export async function POST(request: Request) {
         ? new Date(body.orderDate)
         : new Date();
 
-    const itemRows = [];
+    const products = await findProductsByIds(lines.map((line) => line.productId));
+    const quantityUnit = quantityUnitForChannel(channel);
+    const prepared = [];
     for (const line of lines) {
-      const product = await prisma.product.findUnique({
-        where: { id: line.productId },
-        include: { packaging: true },
-      });
+      const product = products.get(line.productId);
       if (!product) continue;
+      prepared.push({ line, product });
+    }
 
+    const resolvedPrices = auth.session.canSetPrice
+      ? []
+      : await resolvePrices(
+          prisma,
+          customerId,
+          prepared.map(({ line }) => ({
+            productId: line.productId,
+            quantity:
+              quantityUnit === "unit" ? line.quantityUnits : line.quantityBoxes,
+            quantityUnit,
+          })),
+          orderDate,
+        );
+
+    const itemRows = prepared.map(({ line, product }, index) => {
       let unitPriceCents = line.unitPriceCents;
       let boxPriceCents = line.boxPriceCents;
 
@@ -109,41 +126,30 @@ export async function POST(request: Request) {
       // fiyat listesinden çözümlenen değer geçerlidir.
       if (!auth.session.canSetPrice) {
         const unitsPerBox = product.packaging?.unitsPerBox ?? 0;
-        const resolved = await resolvePrice(
-          prisma,
-          customerId,
-          line.productId,
-          quantityUnitForChannel(channel) === "unit"
-            ? line.quantityUnits
-            : line.quantityBoxes,
-          quantityUnitForChannel(channel),
-          orderDate,
-        );
-        unitPriceCents = resolved.unitPriceCents ?? unitPriceCents;
+        const resolved = resolvedPrices[index];
+        unitPriceCents = resolved?.unitPriceCents ?? unitPriceCents;
         boxPriceCents =
-          resolved.boxPriceCents ??
+          resolved?.boxPriceCents ??
           (unitsPerBox > 0
             ? Math.round(unitPriceCents * unitsPerBox)
             : boxPriceCents);
       }
 
-      const totalCents = computeLineTotalCents(
-        line.quantityBoxes,
-        boxPriceCents,
-        line.discountPercent ?? 0,
-      );
-
-      itemRows.push({
+      return {
         productId: line.productId,
         quantityBoxes: line.quantityBoxes,
         quantityUnits: line.quantityUnits,
         unitPriceCents,
         boxPriceCents,
         discountPercent: line.discountPercent ?? 0,
-        totalCents,
+        totalCents: computeLineTotalCents(
+          line.quantityBoxes,
+          boxPriceCents,
+          line.discountPercent ?? 0,
+        ),
         notes: line.notes,
-      });
-    }
+      };
+    });
 
     if (itemRows.length === 0) {
       return NextResponse.json({ error: "Geçerli kalem yok." }, { status: 400 });

@@ -9,6 +9,8 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "X-DNS-Prefetch-Control": "off",
+  "Cache-Control": "private, no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
 };
 
 function withSecurityHeaders(response: NextResponse): NextResponse {

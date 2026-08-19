@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import { validateReserveOrder } from "@/lib/forms/stock-validation";
 import type {
   FinishedStockMatrixCell,
@@ -48,10 +50,10 @@ export function FinishedGoodsSection({
   canEdit,
   labels,
 }: FinishedGoodsSectionProps) {
-  const [rows, setRows] = useState(initialRows);
-  const [matrix, setMatrix] = useState(initialMatrix);
-  const [summary, setSummary] = useState(initialSummary);
-  const [reservations, setReservations] = useState(initialReservations);
+  const [rows, setRows] = useLiveState(initialRows);
+  const [matrix, setMatrix] = useLiveState(initialMatrix);
+  const [summary, setSummary] = useLiveState(initialSummary);
+  const [reservations, setReservations] = useLiveState(initialReservations);
   const [selectedOrderId, setSelectedOrderId] = useState(reserveOrders[0]?.id ?? "");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -94,9 +96,9 @@ export function FinishedGoodsSection({
     setLoading(true);
     try {
       const [stockRes, matrixRes, resRes] = await Promise.all([
-        fetch("/api/stock/finished"),
-        fetch("/api/stock/finished?view=matrix"),
-        fetch("/api/stock/finished?view=reservations"),
+        apiFetch("/api/stock/finished"),
+        apiFetch("/api/stock/finished?view=matrix"),
+        apiFetch("/api/stock/finished?view=reservations"),
       ]);
       const stockData = await stockRes.json();
       const matrixData = await matrixRes.json();
@@ -121,7 +123,7 @@ export function FinishedGoodsSection({
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch("/api/stock/finished/reserve", {
+      const res = await apiFetch("/api/stock/finished/reserve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId: selectedOrderId, action }),

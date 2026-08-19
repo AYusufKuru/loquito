@@ -15,6 +15,8 @@ import {
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import { buildErrors, required } from "@/lib/forms/validation";
 import { MODULE_IDS } from "@/lib/modules";
 import type {
@@ -45,7 +47,7 @@ export function RolesSection({
   labels,
   capabilities,
 }: RolesSectionProps) {
-  const [roles, setRoles] = useState(initialRoles);
+  const [roles, setRoles] = useLiveState(initialRoles);
   const [selectedId, setSelectedId] = useState(initialRoles[0]?.id ?? "");
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
@@ -96,7 +98,7 @@ export function RolesSection({
 
     try {
       if (isCreating) {
-        const res = await fetch("/api/settings/roles", {
+        const res = await apiFetch("/api/settings/roles", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -114,7 +116,7 @@ export function RolesSection({
         selectRole(data.role);
         setMessage("Rol oluşturuldu.");
       } else if (selected) {
-        const res = await fetch(`/api/settings/roles/${selected.id}`, {
+        const res = await apiFetch(`/api/settings/roles/${selected.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -145,7 +147,7 @@ export function RolesSection({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/settings/roles/${selected.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/settings/roles/${selected.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, "Rol silinemedi.");

@@ -18,6 +18,8 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatCard } from "@/components/ui/stat-card";
 import { WorkflowStrip } from "@/components/ui/workflow-strip";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import { validateOrderForm } from "@/lib/forms/orders-validation";
 import {
   sanitizeDecimalInput,
@@ -123,7 +125,7 @@ export function OrdersSection({
   capabilities,
   labels,
 }: OrdersSectionProps) {
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useLiveState(initialOrders);
   const [view, setView] = useState<"kanban" | "editor">("kanban");
   const [selectedId, setSelectedId] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -176,7 +178,7 @@ export function OrdersSection({
   const previewLine = useCallback(
     async (index: number, line: LineState) => {
       if (!customerId || !line.productId) return;
-      const res = await fetch("/api/orders/preview-line", {
+      const res = await apiFetch("/api/orders/preview-line", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -228,7 +230,7 @@ export function OrdersSection({
   }, [customerId, channel]);
 
   async function loadOrder(id: string) {
-    const res = await fetch(`/api/orders/sales/${id}`);
+    const res = await apiFetch(`/api/orders/sales/${id}`);
     const data = await res.json();
     if (!res.ok) return;
     const o = data.order;
@@ -319,7 +321,7 @@ export function OrdersSection({
       if (customerId) form.append("customerId", customerId);
       if (channel) form.append("channel", channel);
 
-      const res = await fetch("/api/orders/import-parse", {
+      const res = await apiFetch("/api/orders/import-parse", {
         method: "POST",
         body: form,
       });
@@ -409,7 +411,7 @@ export function OrdersSection({
 
     try {
       if (isCreating) {
-        const res = await fetch("/api/orders/sales", {
+        const res = await apiFetch("/api/orders/sales", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -424,7 +426,7 @@ export function OrdersSection({
         setSelectedId(data.order.id);
         setMessage(labels.created);
       } else if (selectedId) {
-        const res = await fetch(`/api/orders/sales/${selectedId}`, {
+        const res = await apiFetch(`/api/orders/sales/${selectedId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -453,7 +455,7 @@ export function OrdersSection({
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch("/api/production/orders/from-order", {
+      const res = await apiFetch("/api/production/orders/from-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId: selectedId }),
@@ -488,16 +490,28 @@ export function OrdersSection({
 
   async function handleStatusChange(newStatus: OrderStatus) {
     if (!selectedId) return;
+
+    // Sunucu yanıtı uzak veritabanı yüzünden saniyeler sürebiliyor; kartı
+    // hemen taşıyıp istek başarısız olursa eski haline döndürüyoruz.
+    const rollbackOrders = orders;
+    const rollbackStatus = status;
+
+    setOrders((prev) =>
+      prev.map((o) => (o.id === selectedId ? { ...o, status: newStatus } : o)),
+    );
+    setStatus(newStatus);
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/orders/sales/${selectedId}/status`, {
+      const res = await apiFetch(`/api/orders/sales/${selectedId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
       if (!res.ok) {
+        setOrders(rollbackOrders);
+        setStatus(rollbackStatus);
         showApiError(data, labels.statusError);
         return;
       }
@@ -511,6 +525,8 @@ export function OrdersSection({
       setStatus(data.order.status as OrderStatus);
       setMessage(labels.statusUpdated);
     } catch {
+      setOrders(rollbackOrders);
+      setStatus(rollbackStatus);
       showError(labels.connectionError);
     } finally {
       setLoading(false);

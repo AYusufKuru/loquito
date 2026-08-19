@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +46,7 @@ export function ReceiptsSection({ canCreate, labels }: ReceiptsSectionProps) {
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch("/api/finance/receipts");
+      const res = await apiFetch("/api/finance/receipts");
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.loadError);
@@ -72,7 +74,7 @@ export function ReceiptsSection({ canCreate, labels }: ReceiptsSectionProps) {
       const form = new FormData();
       form.append("file", file!);
       if (counterparty) form.append("counterparty", counterparty);
-      const res = await fetch("/api/finance/receipts", {
+      const res = await apiFetch("/api/finance/receipts", {
         method: "POST",
         body: form,
       });

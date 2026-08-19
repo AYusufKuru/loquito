@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -45,8 +47,8 @@ export function GmailSection({
     setError("");
     try {
       const [statusRes, inboxRes] = await Promise.all([
-        fetch("/api/ai/gmail/status"),
-        fetch("/api/ai/gmail/inbox"),
+        apiFetch("/api/ai/gmail/status"),
+        apiFetch("/api/ai/gmail/inbox"),
       ]);
       const statusData = await statusRes.json();
       const inboxData = await inboxRes.json();
@@ -76,7 +78,7 @@ export function GmailSection({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/ai/gmail/auth");
+      const res = await apiFetch("/api/ai/gmail/auth");
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || labels.connectError);
@@ -96,7 +98,7 @@ export function GmailSection({
     setError("");
     setMessage("");
     try {
-      const res = await fetch("/api/ai/gmail/inbox", { method: "POST" });
+      const res = await apiFetch("/api/ai/gmail/inbox", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || labels.syncError);
@@ -106,7 +108,7 @@ export function GmailSection({
       setMessage(
         `${labels.syncDone}: ${data.created} ${labels.ordersCreated}, ${data.failed} ${labels.failed}`,
       );
-      const statusRes = await fetch("/api/ai/gmail/status");
+      const statusRes = await apiFetch("/api/ai/gmail/status");
       const statusData = await statusRes.json();
       if (statusRes.ok) setStatus(statusData.status);
     } catch {

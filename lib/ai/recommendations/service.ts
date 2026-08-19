@@ -12,7 +12,7 @@ import {
 import { buildProfitabilityReport } from "@/lib/reports/profitability";
 import { buildScrapReport } from "@/lib/reports/scrap";
 import { formatBrlFromCents } from "@/lib/stock/constants";
-import { getAvailableQty } from "@/lib/stock/inventory";
+import { getAvailableQtyMap } from "@/lib/stock/inventory";
 
 import type {
   AiRecommendation,
@@ -195,8 +195,13 @@ async function buildStockAndPurchaseRecommendations(db: Db): Promise<AiRecommend
   const stockItems: AiRecommendation[] = [];
   const purchaseItems: AiRecommendation[] = [];
 
+  const availableQtyMap = await getAvailableQtyMap(
+    db,
+    materials.map((m) => m.id),
+  );
+
   for (const material of materials) {
-    const available = await getAvailableQty(db, material.id);
+    const available = availableQtyMap.get(material.id) ?? 0;
     const onHand = material.currentQty;
     const critical = material.criticalLevel;
     const targetLevel = Math.ceil(critical * SAFETY_STOCK_FACTOR);

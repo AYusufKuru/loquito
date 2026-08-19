@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch } from "@/lib/http";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +61,7 @@ export function ProductionPlanningPanel({
       setLoading(true);
       clearErrors();
       try {
-        const res = await fetch(
+        const res = await apiFetch(
           `/api/production/plan?orderId=${encodeURIComponent(orderId)}&startDate=${date}`,
         );
         const data = await res.json();
@@ -93,7 +95,7 @@ export function ProductionPlanningPanel({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch("/api/production/plan", {
+      const res = await apiFetch("/api/production/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

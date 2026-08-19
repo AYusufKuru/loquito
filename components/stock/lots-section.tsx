@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +33,7 @@ export function LotsSection({
   capabilities,
   labels,
 }: LotsSectionProps) {
-  const [lots, setLots] = useState(initialLots);
+  const [lots, setLots] = useLiveState(initialLots);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
@@ -44,7 +47,7 @@ export function LotsSection({
     clearErrors();
     setMessage("");
     try {
-      const res = await fetch(`/api/stock/lots/${lotId}`, {
+      const res = await apiFetch(`/api/stock/lots/${lotId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),

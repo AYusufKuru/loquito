@@ -4,7 +4,9 @@ import { getDashboardSnapshot } from "@/lib/dashboard/service";
 import { t } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 
-export const revalidate = 30;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 export const maxDuration = 60;
 
 export default async function DashboardPage() {

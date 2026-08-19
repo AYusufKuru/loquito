@@ -106,12 +106,17 @@ export async function computeStockValuation(): Promise<StockValuation> {
     select: { id: true, currentQty: true, unitPriceCents: true },
   });
 
+  const availableQtyMap = await getAvailableQtyMap(
+    prisma,
+    materials.map((m) => m.id),
+  );
+
   let totalValueCents = 0;
   let availableValueCents = 0;
 
   for (const material of materials) {
     totalValueCents += Math.round(material.currentQty * material.unitPriceCents);
-    const available = await getAvailableQty(prisma, material.id);
+    const available = availableQtyMap.get(material.id) ?? 0;
     availableValueCents += Math.round(available * material.unitPriceCents);
   }
 

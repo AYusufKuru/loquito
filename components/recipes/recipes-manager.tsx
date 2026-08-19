@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
 import { useFormErrors } from "@/hooks/use-form-errors";
+import { useLiveState } from "@/hooks/use-live-state";
+import { apiFetch } from "@/lib/http";
 import {
   validateRecipeCopyForm,
   validateRecipeForm,
@@ -116,7 +118,7 @@ export function RecipesManager({
   capabilities,
   labels,
 }: RecipesManagerProps) {
-  const [recipes, setRecipes] = useState(initialRecipes);
+  const [recipes, setRecipes] = useLiveState(initialRecipes);
   const [selectedId, setSelectedId] = useState(initialRecipes[0]?.id ?? "");
   const [isCreating, setIsCreating] = useState(false);
   const [search, setSearch] = useState("");
@@ -202,7 +204,7 @@ export function RecipesManager({
   }
 
   async function loadDetail(id: string) {
-    const res = await fetch(`/api/recipes/${id}`);
+    const res = await apiFetch(`/api/recipes/${id}`);
     const data = await res.json();
     if (!res.ok) return;
 
@@ -272,7 +274,7 @@ export function RecipesManager({
 
     try {
       if (isCreating) {
-        const res = await fetch("/api/recipes", {
+        const res = await apiFetch("/api/recipes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -288,7 +290,7 @@ export function RecipesManager({
         await loadDetail(detail.id);
         setMessage(labels.created);
       } else if (selectedId) {
-        const res = await fetch(`/api/recipes/${selectedId}`, {
+        const res = await apiFetch(`/api/recipes/${selectedId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -322,7 +324,7 @@ export function RecipesManager({
     setLoading(true);
     clearErrors();
     try {
-      const res = await fetch(`/api/recipes/${selectedId}/copy`, {
+      const res = await apiFetch(`/api/recipes/${selectedId}/copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

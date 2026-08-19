@@ -8,7 +8,9 @@ import { t } from "@/lib/i18n";
 import { serializeProductionOrder } from "@/lib/production/serialize";
 import { toDateOnlyString } from "@/lib/utils/datetime";
 
-export const revalidate = 20;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export default async function ProductionPage() {
   const { permissions } = await requireModuleAccess("production");

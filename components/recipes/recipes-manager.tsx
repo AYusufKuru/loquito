@@ -288,6 +288,7 @@ export function RecipesManager({
         const row = rowFromDetail(detail);
         setRecipes((prev) => [...prev, row]);
         await loadDetail(detail.id);
+        setViewTab("packaging");
         setMessage(labels.created);
       } else if (selectedId) {
         const res = await apiFetch(`/api/recipes/${selectedId}`, {
@@ -458,7 +459,7 @@ export function RecipesManager({
                   size="sm"
                   variant={viewTab === "packaging" ? "default" : "outline"}
                   onClick={() => setViewTab("packaging")}
-                  disabled={isCreating}
+                  title={isCreating ? labels.packagingSaveFirst : undefined}
                 >
                   {labels.tabPackaging}
                 </Button>
@@ -543,10 +544,16 @@ export function RecipesManager({
                       }}
                       disabled={!capabilities.canEdit && !isCreating}
                     />
+                    {labels.yieldHint ? (
+                      <p className="text-xs text-muted-foreground">{labels.yieldHint}</p>
+                    ) : null}
                   </FormField>
                   <div className="space-y-2">
                     <Label>{labels.scrapPercent}</Label>
                     <Input value={scrapPercent.toFixed(2)} readOnly disabled />
+                    {labels.scrapHint ? (
+                      <p className="text-xs text-muted-foreground">{labels.scrapHint}</p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -735,6 +742,19 @@ export function RecipesManager({
                   </Card>
                 )}
                   </>
+                )}
+
+                {viewTab === "packaging" && isCreating && (
+                  <div className="space-y-3">
+                    <p className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">
+                      {labels.packagingSaveFirst}
+                    </p>
+                    {capabilities.canCreate ? (
+                      <Button onClick={handleSave} disabled={loading}>
+                        {loading ? labels.saving : labels.create}
+                      </Button>
+                    ) : null}
+                  </div>
                 )}
 
                 {viewTab === "packaging" && selectedId && !isCreating && (

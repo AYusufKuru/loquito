@@ -32,6 +32,16 @@ export function parseMoneyBrl(
   return { error: null, value: cents };
 }
 
+export function validateProductForm(form: {
+  recipeId: string;
+  packagingId: string;
+}): FieldErrors | null {
+  return buildErrors([
+    ["recipeId", required(form.recipeId, "Reçete")],
+    ["packagingId", required(form.packagingId, "Gramaj")],
+  ]);
+}
+
 export function validateSalesRepForm(form: {
   name: string;
   email: string;

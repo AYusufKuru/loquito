@@ -27,8 +27,17 @@ export default async function OrdersPage() {
     canApproveOrder: session.canApproveOrder,
   };
 
-  const { orders, customers, salesReps, priceLists, products, orderProducts } =
-    await getOrdersPageData();
+  const {
+    orders,
+    customers,
+    salesReps,
+    priceLists,
+    products,
+    orderProducts,
+    recipes,
+    packagings,
+    catalogProducts,
+  } = await getOrdersPageData();
 
   const labels: Record<string, string> = {
     title: t("modules.orders.title"),
@@ -37,6 +46,7 @@ export default async function OrdersPage() {
     customersTab: t("orders.customersTab"),
     salesRepsTab: t("orders.salesRepsTab"),
     priceListsTab: t("orders.priceListsTab"),
+    productsTab: t("orders.productsTab"),
     customersList: t("orders.customersList"),
     salesRepsList: t("orders.salesRepsList"),
     priceListsList: t("orders.priceListsList"),
@@ -46,6 +56,8 @@ export default async function OrdersPage() {
     newCustomer: t("orders.newCustomer"),
     newSalesRep: t("orders.newSalesRep"),
     newPriceList: t("orders.newPriceList"),
+    newProduct: t("orders.newProduct"),
+    productsList: t("orders.productsList"),
     selectCustomer: t("orders.selectCustomer"),
     selectSalesRep: t("orders.selectSalesRep"),
     selectPriceList: t("orders.selectPriceList"),
@@ -70,6 +82,16 @@ export default async function OrdersPage() {
     listItemsDesc: t("orders.listItemsDesc"),
     itemsShort: t("orders.itemsShort"),
     product: t("orders.product"),
+    selectProduct: t("orders.selectProduct"),
+    noSellableProducts: t("orders.noSellableProducts"),
+    productRecipe: t("orders.productRecipe"),
+    productPackaging: t("orders.productPackaging"),
+    productSku: t("orders.productSku"),
+    skuAuto: t("orders.skuAuto"),
+    productNameAuto: t("orders.productNameAuto"),
+    productCreated: t("orders.productCreated"),
+    noRecipesForProduct: t("orders.noRecipesForProduct"),
+    addProduct: t("orders.addProduct"),
     boxPrice: t("orders.boxPrice"),
     unitPrice: t("orders.unitPrice"),
     save: t("orders.save"),
@@ -161,6 +183,7 @@ export default async function OrdersPage() {
     customersTabDesc: t("orders.customersTabDesc"),
     salesRepsTabDesc: t("orders.salesRepsTabDesc"),
     priceListsTabDesc: t("orders.priceListsTabDesc"),
+    productsTabDesc: t("orders.productsTabDesc"),
     notes: t("orders.notes"),
     statusUpdated: t("orders.statusUpdated"),
     statusError: t("orders.statusError"),
@@ -226,6 +249,9 @@ export default async function OrdersPage() {
           packagingCode: p.packaging?.code ?? null,
           customerId: p.customerId,
         }))}
+        catalogProducts={catalogProducts}
+        recipes={recipes}
+        packagings={packagings}
         salesReps={salesReps.map(toSalesRepRow)}
         priceLists={priceLists.map(toPriceListRow)}
         capabilities={capabilities}

@@ -67,6 +67,7 @@ interface OrdersSectionProps {
   products: OrderProductOption[];
   capabilities: OrdersCapabilities;
   labels: Record<string, string>;
+  onAddProduct?: () => void;
 }
 
 const KANBAN_ACCENT: Record<OrderStatus, string> = {
@@ -124,6 +125,7 @@ export function OrdersSection({
   products,
   capabilities,
   labels,
+  onAddProduct,
 }: OrdersSectionProps) {
   const [orders, setOrders] = useLiveState(initialOrders);
   const [view, setView] = useState<"kanban" | "editor">("kanban");
@@ -204,9 +206,12 @@ export function OrdersSection({
             quantityBoxes: String(data.quantityBoxes),
             quantityUnits: String(data.quantityUnits),
             unitsPerBox: data.unitsPerBox,
-            unitPrice: capabilities.canSetPrice && l.unitPrice
-              ? l.unitPrice
-              : centsToInput(data.unitPriceCents),
+            unitPrice:
+              capabilities.canSetPrice &&
+              l.unitPrice &&
+              (parseBrlToCents(l.unitPrice) ?? 0) > 0
+                ? l.unitPrice
+                : centsToInput(data.unitPriceCents),
             boxPrice: centsToInput(data.boxPriceCents),
             totalCents: data.totalCents,
             marginPercent: data.marginPercent,
@@ -773,19 +778,31 @@ export function OrdersSection({
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base">{labels.sectionLines}</CardTitle>
               {editable && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    setLines((p) => [...p, emptyLine(filteredProducts)])
-                  }
-                >
-                  + {labels.addLine}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {onAddProduct ? (
+                    <Button size="sm" variant="outline" onClick={onAddProduct}>
+                      + {labels.addProduct}
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setLines((p) => [...p, emptyLine(filteredProducts)])
+                    }
+                  >
+                    + {labels.addLine}
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>
           <CardContent className="pt-5">
+            {filteredProducts.length === 0 ? (
+              <p className="mb-3 text-sm text-muted-foreground">
+                {labels.noSellableProducts}
+              </p>
+            ) : null}
             <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
                   <thead>
@@ -816,10 +833,13 @@ export function OrdersSection({
                                 productId: e.target.value,
                               }), 0);
                             }}
-                            disabled={!editable}
+                            disabled={!editable || filteredProducts.length === 0}
                           >
+                            <option value="">{labels.selectProduct}</option>
                             {filteredProducts.map((p) => (
-                              <option key={p.id} value={p.id}>{p.sku}</option>
+                              <option key={p.id} value={p.id}>
+                                {p.sku} — {p.name}
+                              </option>
                             ))}
                           </select>
                         </td>

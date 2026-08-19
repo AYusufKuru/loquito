@@ -177,6 +177,7 @@ async function seedFactoryAndLines() {
 
 async function seedFlavorsAndPackagings() {
   await prisma.flavor.createMany({
+    skipDuplicates: true,
     data: FLAVORS.map((f) => ({
       code: f.code,
       namePt: f.namePt,
@@ -187,6 +188,7 @@ async function seedFlavorsAndPackagings() {
   });
 
   await prisma.packaging.createMany({
+    skipDuplicates: true,
     data: PACKAGINGS.map((p) => ({
       code: p.code,
       label: p.label,

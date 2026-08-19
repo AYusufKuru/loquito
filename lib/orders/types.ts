@@ -67,6 +67,33 @@ export interface OrderProductOption {
   customerId: string | null;
 }
 
+export interface CatalogProductRow {
+  id: string;
+  sku: string;
+  name: string;
+  recipeId: string | null;
+  recipeCode: string | null;
+  recipeName: string | null;
+  packagingId: string | null;
+  packagingLabel: string | null;
+  unitsPerBox: number;
+  customerId: string | null;
+}
+
+export interface RecipePickOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface PackagingPickOption {
+  id: string;
+  code: string;
+  label: string;
+  netWeightG: number;
+  unitsPerBox: number;
+}
+
 export interface OrdersCapabilities {
   canCreate: boolean;
   canEdit: boolean;

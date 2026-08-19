@@ -55,6 +55,20 @@ export function computeOrderTotals(
   return { subtotalCents, totalCents };
 }
 
+export function completeUnitBoxPrices(
+  unitPriceCents: number,
+  boxPriceCents: number,
+  unitsPerBox: number,
+): { unitPriceCents: number; boxPriceCents: number } {
+  let unit = Math.max(0, Math.round(unitPriceCents || 0));
+  let box = Math.max(0, Math.round(boxPriceCents || 0));
+  if (unitsPerBox > 0) {
+    if (unit > 0 && box <= 0) box = unit * unitsPerBox;
+    else if (box > 0 && unit <= 0) unit = Math.round(box / unitsPerBox);
+  }
+  return { unitPriceCents: unit, boxPriceCents: box };
+}
+
 export function marginPercent(
   unitPriceCents: number,
   costUnitCents: number | null,

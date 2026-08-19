@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiPermission } from "@/lib/auth/api-auth";
 import {
+  completeUnitBoxPrices,
   computeLineTotalCents,
   computeOrderTotals,
   quantityUnitForChannel,
@@ -91,18 +92,23 @@ async function enrichItems(
     const boxPriceCents =
       requestedBoxPrice ||
       resolved?.boxPriceCents ||
-      (unitsPerBox > 0 ? Math.round(unitPriceCents * unitsPerBox) : 0);
+      0;
+    const completed = completeUnitBoxPrices(
+      unitPriceCents,
+      boxPriceCents,
+      unitsPerBox,
+    );
 
     return {
       productId: item.productId,
       quantityBoxes: synced.quantityBoxes,
       quantityUnits: synced.quantityUnits,
-      unitPriceCents,
-      boxPriceCents,
+      unitPriceCents: completed.unitPriceCents,
+      boxPriceCents: completed.boxPriceCents,
       discountPercent: item.discountPercent,
       totalCents: computeLineTotalCents(
         synced.quantityBoxes,
-        boxPriceCents,
+        completed.boxPriceCents,
         item.discountPercent,
       ),
       notes: item.notes,

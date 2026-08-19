@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiPermission } from "@/lib/auth/api-auth";
 import {
+  completeUnitBoxPrices,
   computeLineTotalCents,
   marginPercent,
   quantityUnitForChannel,
@@ -57,11 +58,13 @@ export async function POST(request: Request) {
       quantityUnitForChannel(channel),
     );
 
-    const finalUnitPrice =
-      unitPriceCents ?? resolved.unitPriceCents ?? 0;
-    const finalBoxPrice =
-      resolved.boxPriceCents ??
-      (unitsPerBox > 0 ? Math.round(finalUnitPrice * unitsPerBox) : 0);
+    const completed = completeUnitBoxPrices(
+      unitPriceCents ?? resolved.unitPriceCents ?? 0,
+      resolved.boxPriceCents ?? 0,
+      unitsPerBox,
+    );
+    const finalUnitPrice = completed.unitPriceCents;
+    const finalBoxPrice = completed.boxPriceCents;
     const discountPercent = Number(body.discountPercent) || 0;
     const totalCents = computeLineTotalCents(
       synced.quantityBoxes,

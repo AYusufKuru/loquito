@@ -124,6 +124,7 @@ export interface ProductOption {
   id: string;
   sku: string;
   name: string;
+  unitsPerBox: number;
 }
 
 export interface OrdersCapabilities {

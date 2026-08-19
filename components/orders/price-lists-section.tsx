@@ -76,6 +76,25 @@ function fromList(list: PriceListRow): ListForm {
   };
 }
 
+function linkedLinePrices(
+  line: ItemLine,
+  field: "boxPrice" | "unitPrice",
+  value: string,
+  unitsPerBox: number,
+): ItemLine {
+  const sanitized = sanitizeMoneyInput(value);
+  const next = { ...line, [field]: sanitized };
+  if (unitsPerBox <= 0) return next;
+  const cents = parseBrlToCents(sanitized);
+  if (cents == null || cents <= 0) return next;
+  if (field === "boxPrice") {
+    next.unitPrice = (cents / unitsPerBox / 100).toFixed(2);
+  } else {
+    next.boxPrice = ((cents * unitsPerBox) / 100).toFixed(2);
+  }
+  return next;
+}
+
 function itemsToLines(
   items: PriceListItemRow[],
   products: ProductOption[],
@@ -375,7 +394,12 @@ export function PriceListsSection({
                                 setLines((prev) =>
                                   prev.map((l, i) =>
                                     i === index
-                                      ? { ...l, boxPrice: sanitizeMoneyInput(e.target.value) }
+                                      ? linkedLinePrices(
+                                          l,
+                                          "boxPrice",
+                                          e.target.value,
+                                          product?.unitsPerBox ?? 0,
+                                        )
                                       : l,
                                   ),
                                 )
@@ -391,7 +415,12 @@ export function PriceListsSection({
                                 setLines((prev) =>
                                   prev.map((l, i) =>
                                     i === index
-                                      ? { ...l, unitPrice: sanitizeMoneyInput(e.target.value) }
+                                      ? linkedLinePrices(
+                                          l,
+                                          "unitPrice",
+                                          e.target.value,
+                                          product?.unitsPerBox ?? 0,
+                                        )
                                       : l,
                                   ),
                                 )

@@ -9,6 +9,7 @@ import {
 import { loadOrderDetail } from "@/lib/orders/load";
 import { findProductsByIds } from "@/lib/orders/products";
 import {
+  completeUnitBoxPrices,
   computeLineTotalCents,
   computeOrderTotals,
   quantityUnitForChannel,
@@ -130,12 +131,16 @@ export async function PATCH(request: Request, context: RouteContext) {
       if (!session.canSetPrice) {
         const resolved = resolvedPrices[index];
         unitPriceCents = resolved?.unitPriceCents ?? unitPriceCents;
-        boxPriceCents =
-          resolved?.boxPriceCents ??
-          (unitsPerBox > 0
-            ? Math.round(unitPriceCents * unitsPerBox)
-            : boxPriceCents);
+        boxPriceCents = resolved?.boxPriceCents ?? boxPriceCents;
       }
+
+      const completed = completeUnitBoxPrices(
+        unitPriceCents,
+        boxPriceCents,
+        unitsPerBox,
+      );
+      unitPriceCents = completed.unitPriceCents;
+      boxPriceCents = completed.boxPriceCents;
 
       return {
         productId: item.productId,

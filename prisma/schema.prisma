@@ -53,6 +53,8 @@ model User {
   updatedAt         DateTime  @updatedAt
   role              Role      @relation(fields: [roleId], references: [id])
   auditLogs         AuditLog[]
+  pendingApprovalsRequested PendingApproval[] @relation("PendingApprovalRequester")
+  pendingApprovalsReviewed  PendingApproval[] @relation("PendingApprovalReviewer")
 
   @@index([roleId])
 }
@@ -914,4 +916,29 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ─── Yönetici onay kuyruğu ────────────────────────────────────────
+
+model PendingApproval {
+  id            String   @id @default(cuid())
+  type          String   // shipment_delete | ...
+  status        String   @default("pending") // pending | approved | rejected
+  entityType    String
+  entityId      String
+  entityLabel   String?
+  reason        String
+  payload       String?
+  requestedById String
+  requestedAt   DateTime @default(now())
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  requestedBy   User     @relation("PendingApprovalRequester", fields: [requestedById], references: [id])
+  reviewedBy    User?    @relation("PendingApprovalReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status, type])
+  @@index([entityType, entityId])
+  @@index([requestedById])
 }

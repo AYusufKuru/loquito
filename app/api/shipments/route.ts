@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getPendingEntityIdSet } from "@/lib/approvals/service";
 import { requireApiPermission } from "@/lib/auth/api-auth";
 import { prisma } from "@/lib/prisma";
 import { serializeShipment } from "@/lib/shipments/serialize";
@@ -28,13 +29,18 @@ export async function GET(request: Request) {
     });
   }
 
-  const shipments = await listShipments(prisma, {
-    orderId: orderId ?? undefined,
-    status: status ?? undefined,
-  });
+  const [shipments, pendingIds] = await Promise.all([
+    listShipments(prisma, {
+      orderId: orderId ?? undefined,
+      status: status ?? undefined,
+    }),
+    getPendingEntityIdSet(prisma, "shipment_delete"),
+  ]);
 
   return NextResponse.json({
-    shipments: shipments.map(serializeShipment),
+    shipments: shipments.map((row) =>
+      serializeShipment(row, { pendingDelete: pendingIds.has(row.id) }),
+    ),
   });
 }
 

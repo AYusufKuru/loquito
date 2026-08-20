@@ -30,6 +30,7 @@ const prisma = new PrismaClient();
 const FRUIT_FLAVOR_CODES = ["ACA", "LIM", "MRQ", "GRV", "GOI", "CPC", "ABX", "MNG"] as const;
 
 async function clearDatabase() {
+  await prisma.pendingApproval.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.receipt.deleteMany();
   await prisma.bankStatement.deleteMany();

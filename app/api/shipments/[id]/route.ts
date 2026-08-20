@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getPendingEntityIdSet } from "@/lib/approvals/service";
 import { requireApiPermission } from "@/lib/auth/api-auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -9,7 +10,7 @@ import {
   type ShipmentStatus,
 } from "@/lib/shipments/constants";
 import { serializeShipment } from "@/lib/shipments/serialize";
-import { getShipment, updateShipment, deleteShipment } from "@/lib/shipments/service";
+import { getShipment, updateShipment } from "@/lib/shipments/service";
 
 export async function GET(
   _request: Request,
@@ -19,12 +20,17 @@ export async function GET(
   if (auth.error) return auth.error;
 
   const { id } = await params;
-  const shipment = await getShipment(prisma, id);
+  const [shipment, pendingIds] = await Promise.all([
+    getShipment(prisma, id),
+    getPendingEntityIdSet(prisma, "shipment_delete"),
+  ]);
   if (!shipment) {
     return NextResponse.json({ error: "Sevkiyat bulunamadı." }, { status: 404 });
   }
 
-  return NextResponse.json({ shipment: serializeShipment(shipment) });
+  return NextResponse.json({
+    shipment: serializeShipment(shipment, { pendingDelete: pendingIds.has(shipment.id) }),
+  });
 }
 
 export async function PATCH(
@@ -91,26 +97,19 @@ export async function PATCH(
       checklist: Object.keys(checklist).length > 0 ? checklist : undefined,
     });
 
-    return NextResponse.json({ shipment: serializeShipment(shipment) });
+    const pendingIds = await getPendingEntityIdSet(prisma, "shipment_delete");
+    return NextResponse.json({
+      shipment: serializeShipment(shipment, { pendingDelete: pendingIds.has(shipment.id) }),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Güncelleme başarısız.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const auth = await requireApiPermission("shipments", "delete");
-  if (auth.error) return auth.error;
-
-  try {
-    const { id } = await params;
-    await deleteShipment(prisma, id);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Sevkiyat silinemedi.";
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
+export async function DELETE() {
+  return NextResponse.json(
+    { error: "Sevkiyat doğrudan silinemez. Silme talebi oluşturun." },
+    { status: 400 },
+  );
 }

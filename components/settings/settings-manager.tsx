@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AuditLogSection } from "@/components/audit/audit-log-section";
 import { FactorySettingsSection } from "@/components/settings/factory-settings-section";
 import { NotificationsSection } from "@/components/settings/notifications-section";
+import { PendingApprovalsSection } from "@/components/settings/pending-approvals-section";
 import { RolesSection } from "@/components/settings/roles-section";
 import { UsersSection } from "@/components/settings/users-section";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,13 @@ import type {
   UserRow,
 } from "@/lib/settings/types";
 
-type Tab = "users" | "roles" | "factory" | "notifications" | "audit";
+type Tab =
+  | "users"
+  | "roles"
+  | "factory"
+  | "notifications"
+  | "audit"
+  | "pendingApprovals";
 
 interface SettingsManagerProps {
   initialUsers: UserRow[];
@@ -23,7 +30,9 @@ interface SettingsManagerProps {
   auditLabels: Record<string, string>;
   factoryLabels: Record<string, string>;
   notificationLabels: Record<string, string>;
+  pendingApprovalsLabels: Record<string, string>;
   capabilities: SettingsCapabilities;
+  canApprovePending: boolean;
   currentUserId: string;
 }
 
@@ -34,14 +43,16 @@ export function SettingsManager({
   auditLabels,
   factoryLabels,
   notificationLabels,
+  pendingApprovalsLabels,
   capabilities,
+  canApprovePending,
   currentUserId,
 }: SettingsManagerProps) {
   const [tab, setTab] = useState<Tab>("users");
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="flex gap-2 border-b">
+      <div className="flex flex-wrap gap-2 border-b">
         <button
           type="button"
           onClick={() => setTab("users")}
@@ -102,6 +113,18 @@ export function SettingsManager({
         >
           {labels.auditTab ?? "Değişiklik logu"}
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("pendingApprovals")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+            tab === "pendingApprovals"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {labels.pendingApprovalsTab ?? "Yönetici onayı bekleyen işlemler"}
+        </button>
       </div>
 
       <div className="mt-6">
@@ -127,6 +150,11 @@ export function SettingsManager({
           <NotificationsSection
             labels={notificationLabels}
             canEdit={capabilities.canEdit}
+          />
+        ) : tab === "pendingApprovals" ? (
+          <PendingApprovalsSection
+            labels={pendingApprovalsLabels}
+            canApprove={canApprovePending}
           />
         ) : (
           <AuditLogSection labels={auditLabels} />

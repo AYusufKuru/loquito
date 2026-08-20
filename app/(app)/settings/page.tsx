@@ -20,6 +20,7 @@ export default async function SettingsPage() {
     canEdit: hasPermission(permissions, "settings", "edit"),
     canDelete: hasPermission(permissions, "settings", "delete"),
   };
+  const canApprovePending = hasPermission(permissions, "settings", "approve");
 
   const [users, roles] = await Promise.all([
     prisma.user.findMany({
@@ -74,6 +75,7 @@ export default async function SettingsPage() {
     factoryTab: t("settings.factoryTab"),
     notificationsTab: t("settings.notificationsTab"),
     auditTab: t("settings.auditTab"),
+    pendingApprovalsTab: t("settings.pendingApprovalsTab"),
   };
 
   const factoryLabels: Record<string, string> = {
@@ -131,6 +133,22 @@ export default async function SettingsPage() {
     saving: t("audit.loading"),
   };
 
+  const pendingApprovalsLabels: Record<string, string> = {
+    title: t("settings.pendingApprovalsTitle"),
+    desc: t("settings.pendingApprovalsDesc"),
+    empty: t("settings.pendingApprovalsEmpty"),
+    requestedBy: t("settings.pendingApprovalsRequestedBy"),
+    requestedAt: t("settings.pendingApprovalsRequestedAt"),
+    reason: t("settings.pendingApprovalsReason"),
+    approve: t("settings.pendingApprovalsApprove"),
+    approved: t("settings.pendingApprovalsApproved"),
+    approveError: t("settings.pendingApprovalsApproveError"),
+    refresh: t("settings.pendingApprovalsRefresh"),
+    loading: t("audit.loading"),
+    loadError: t("audit.loadError"),
+    connectionError: t("audit.connectionError"),
+  };
+
   return (
     <SettingsManager
       initialUsers={users.map((user) => ({
@@ -156,7 +174,9 @@ export default async function SettingsPage() {
       auditLabels={auditLabels}
       factoryLabels={factoryLabels}
       notificationLabels={notificationLabels}
+      pendingApprovalsLabels={pendingApprovalsLabels}
       capabilities={capabilities}
+      canApprovePending={canApprovePending}
       currentUserId={session.userId}
     />
   );

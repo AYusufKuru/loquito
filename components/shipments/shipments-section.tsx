@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
+import { PromptDialog } from "@/components/ui/prompt-dialog";
 import { useFormErrors } from "@/hooks/use-form-errors";
 import { useLiveState } from "@/hooks/use-live-state";
 import { apiFetch } from "@/lib/http";
@@ -89,6 +90,8 @@ export function ShipmentsSection({
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<SerializedShipment | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
   const {
     fieldError,
     clearErrors,
@@ -364,26 +367,45 @@ export function ShipmentsSection({
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!canDelete) return;
-    if (!confirm(labels.deleteConfirm)) return;
+  const canRequestDelete = (shipment: SerializedShipment) =>
+    canDelete && shipment.status === "planned" && !shipment.pendingDelete;
+
+  const openDeleteDialog = (id: string) => {
+    const shipment =
+      shipments.find((row) => row.id === id) ??
+      (detail?.id === id ? detail : null);
+    if (!shipment || !canRequestDelete(shipment)) return;
+    setDeleteTarget(shipment);
+    setDeleteReason("");
+  };
+
+  const handleDeleteRequest = async () => {
+    if (!deleteTarget || !canDelete) return;
 
     setLoading(true);
     clearErrors();
     try {
-      const res = await apiFetch(`/api/shipments/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/shipments/${deleteTarget.id}/delete-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason }),
+      });
       const data = await res.json();
       if (!res.ok) {
         showApiError(data, labels.deleteError);
         return;
       }
-      setShipments((prev) => prev.filter((s) => s.id !== id));
-      if (selectedShipmentId === id) {
-        setSelectedShipmentId("");
-        setDetail(null);
+      setShipments((prev) =>
+        prev.map((row) =>
+          row.id === deleteTarget.id ? { ...row, pendingDelete: true } : row,
+        ),
+      );
+      if (detail?.id === deleteTarget.id) {
+        setDetail({ ...detail, pendingDelete: true });
       }
-      setMessage(labels.deleted);
-      if (selectedOrderId) await loadProgress(selectedOrderId);
+      setDeleteTarget(null);
+      setDeleteReason("");
+      setMessage(labels.deleteRequestSent);
     } catch {
       showError(labels.connectionError);
     } finally {
@@ -396,6 +418,31 @@ export function ShipmentsSection({
   return (
     <>
       {ErrorModal}
+      <PromptDialog
+        open={Boolean(deleteTarget)}
+        title={labels.deleteReasonTitle}
+        description={
+          deleteTarget
+            ? `${labels.deleteReasonDesc} ${deleteTarget.shipmentNo}`
+            : labels.deleteReasonDesc
+        }
+        label={labels.deleteReason}
+        placeholder={labels.deleteReasonPlaceholder}
+        confirmLabel={labels.submitDeleteRequest}
+        cancelLabel={labels.cancel}
+        value={deleteReason}
+        submitting={loading}
+        onChange={setDeleteReason}
+        onConfirm={() => {
+          void handleDeleteRequest();
+        }}
+        onCancel={() => {
+          if (!loading) {
+            setDeleteTarget(null);
+            setDeleteReason("");
+          }
+        }}
+      />
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
       <div className="space-y-6">
         <Card>
@@ -432,18 +479,22 @@ export function ShipmentsSection({
                       {s.orderNo} · {s.customerName}
                     </p>
                   </button>
-                  {canDelete && (
+                  {canRequestDelete(s) ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       className="m-2 shrink-0 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(s.id)}
+                      onClick={() => openDeleteDialog(s.id)}
                       disabled={loading}
                     >
                       {labels.delete}
                     </Button>
-                  )}
+                  ) : s.pendingDelete ? (
+                    <span className="m-2 shrink-0 self-center text-xs text-muted-foreground">
+                      {labels.deletePending}
+                    </span>
+                  ) : null}
                 </div>
               ))
             )}
@@ -595,18 +646,22 @@ export function ShipmentsSection({
                     {labels.actualShipDate}: {detail.actualShipDate}
                   </Badge>
                 )}
-                {canDelete && (
+                {canRequestDelete(detail) ? (
                   <Button
                     type="button"
                     variant="destructive"
                     size="sm"
                     className="ml-auto"
-                    onClick={() => handleDelete(detail.id)}
+                    onClick={() => openDeleteDialog(detail.id)}
                     disabled={loading}
                   >
                     {labels.delete}
                   </Button>
-                )}
+                ) : detail.pendingDelete ? (
+                  <Badge variant="outline" className="ml-auto">
+                    {labels.deletePending}
+                  </Badge>
+                ) : null}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">

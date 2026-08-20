@@ -81,6 +81,7 @@ export interface SerializedShipment {
   issueNotes: string | null;
   notes: string | null;
   createdAt: string;
+  pendingDelete: boolean;
   items: SerializedShipmentItem[];
 }
 
@@ -88,7 +89,10 @@ function iso(d: Date | null | undefined): string | null {
   return d ? d.toISOString() : null;
 }
 
-export function serializeShipment(row: ShipmentRow): SerializedShipment {
+export function serializeShipment(
+  row: ShipmentRow,
+  extras?: { pendingDelete?: boolean },
+): SerializedShipment {
   const status = row.status;
   return {
     id: row.id,
@@ -126,6 +130,7 @@ export function serializeShipment(row: ShipmentRow): SerializedShipment {
     issueNotes: row.issueNotes,
     notes: row.notes,
     createdAt: row.createdAt.toISOString(),
+    pendingDelete: extras?.pendingDelete ?? false,
     items: row.items.map((item) => ({
       id: item.id,
       orderItemId: item.orderItemId,

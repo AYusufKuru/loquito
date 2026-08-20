@@ -1,4 +1,5 @@
 import { ShipmentsSection } from "@/components/shipments/shipments-section";
+import { getPendingEntityIdSet } from "@/lib/approvals/service";
 import {
   hasPermission,
   requireModuleAccess,
@@ -19,9 +20,10 @@ export default async function ShipmentsPage() {
   const canEdit = hasPermission(permissions, "shipments", "edit");
   const canDelete = hasPermission(permissions, "shipments", "delete");
 
-  const [shipments, shippableOrders] = await Promise.all([
+  const [shipments, shippableOrders, pendingIds] = await Promise.all([
     listShipments(prisma),
     listShippableOrders(prisma),
+    getPendingEntityIdSet(prisma, "shipment_delete"),
   ]);
 
   const labels: Record<string, string> = {
@@ -90,6 +92,14 @@ export default async function ShipmentsPage() {
     refresh: t("shipments.refresh"),
     delete: t("shipments.delete"),
     deleteConfirm: t("shipments.deleteConfirm"),
+    deleteReason: t("shipments.deleteReason"),
+    deleteReasonPlaceholder: t("shipments.deleteReasonPlaceholder"),
+    deleteReasonTitle: t("shipments.deleteReasonTitle"),
+    deleteReasonDesc: t("shipments.deleteReasonDesc"),
+    deleteRequestSent: t("shipments.deleteRequestSent"),
+    deletePending: t("shipments.deletePending"),
+    cancel: t("shipments.cancel"),
+    submitDeleteRequest: t("shipments.submitDeleteRequest"),
     deleted: t("shipments.deleted"),
     deleteError: t("shipments.deleteError"),
     checkStockReserved: t("shipments.checkStockReserved"),
@@ -104,7 +114,9 @@ export default async function ShipmentsPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <ShipmentsSection
-          initialShipments={shipments.map(serializeShipment)}
+          initialShipments={shipments.map((row) =>
+            serializeShipment(row, { pendingDelete: pendingIds.has(row.id) }),
+          )}
           shippableOrders={shippableOrders.map((o) => ({
             id: o.id,
             orderNo: o.orderNo,

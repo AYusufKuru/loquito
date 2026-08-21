@@ -13,6 +13,7 @@ export async function loadOrderDetail(id: string) {
     where: { id },
     include: {
       customer: { select: { name: true } },
+      taxLocation: { select: { code: true, name: true } },
       items: {
         include: {
           product: {
@@ -67,10 +68,11 @@ export async function loadOrderDetail(id: string) {
     });
   });
 
-  const { subtotalCents } = computeOrderTotals(
+  const { subtotalCents, netCents } = computeOrderTotals(
     items,
     order.discountCents,
     order.freightCents ?? 0,
+    order.taxPercent ?? 0,
   );
 
   return {
@@ -82,5 +84,6 @@ export async function loadOrderDetail(id: string) {
     })),
     items,
     subtotalCents,
+    netCents,
   };
 }

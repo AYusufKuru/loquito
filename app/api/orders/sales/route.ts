@@ -15,6 +15,7 @@ import { toOrderRow } from "@/lib/orders/serialize";
 import type { OrderItemInput } from "@/lib/orders/types";
 import { resolvePrices } from "@/lib/pricing/resolve";
 import { prisma } from "@/lib/prisma";
+import { resolveTaxSnapshot } from "@/lib/finance/tax-locations";
 
 function parseItems(input: unknown): OrderItemInput[] | null {
   if (!Array.isArray(input)) return null;
@@ -123,6 +124,7 @@ export async function GET() {
   const orders = await prisma.order.findMany({
     include: {
       customer: { select: { name: true } },
+      taxLocation: { select: { code: true, name: true } },
       items: {
         select: {
           quantityBoxes: true,
@@ -163,6 +165,14 @@ export async function POST(request: Request) {
       typeof body.channel === "string" && body.channel ? body.channel : "retail_form";
     const discountCents = Math.round(Number(body.discountCents) || 0);
     const freightCents = Math.round(Number(body.freightCents) || 0);
+    const taxLocationId =
+      typeof body.taxLocationId === "string" && body.taxLocationId.trim()
+        ? body.taxLocationId.trim()
+        : null;
+    if (!taxLocationId) {
+      return NextResponse.json({ error: "KDV konumu zorunludur." }, { status: 400 });
+    }
+    const tax = await resolveTaxSnapshot(prisma, taxLocationId);
 
     // Onay yetkisi olmayan kullanıcı siparişi doğrudan onaylı oluşturamaz.
     const requestedStatus =
@@ -180,10 +190,11 @@ export async function POST(request: Request) {
       canSetPrice: auth.session.canSetPrice,
       asOf: orderDate,
     });
-    const { totalCents } = computeOrderTotals(
+    const { totalCents, taxCents } = computeOrderTotals(
       enriched,
       discountCents,
       freightCents,
+      tax.taxPercent,
     );
 
     const orderNo =
@@ -215,6 +226,9 @@ export async function POST(request: Request) {
         totalCents,
         discountCents,
         freightCents,
+        taxLocationId: tax.taxLocationId,
+        taxPercent: tax.taxPercent,
+        taxCents,
         notes:
           typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null,
         items: {
@@ -234,7 +248,17 @@ export async function POST(request: Request) {
 
     const detail = await loadOrderDetail(order.id);
     return NextResponse.json({ order: detail });
-  } catch {
-    return NextResponse.json({ error: "Sipariş oluşturulamadı." }, { status: 500 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Sipariş oluşturulamadı.";
+    const clientError =
+      message.includes("KDV") ||
+      message.includes("konum") ||
+      message.includes("Müşteri") ||
+      message.includes("sipariş no");
+    return NextResponse.json(
+      { error: message },
+      { status: clientError ? 400 : 500 },
+    );
   }
 }

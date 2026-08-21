@@ -31,10 +31,14 @@ export function toOrderRow(
     totalCents: number;
     discountCents: number;
     freightCents?: number;
+    taxLocationId?: string | null;
+    taxPercent?: number;
+    taxCents?: number;
     notes: string | null;
     approvedAt: Date | string | null;
     customer?: { name: string };
     items?: OrderItemForSummary[];
+    taxLocation?: { code: string; name: string | null } | null;
   },
 ): OrderRow {
   return {
@@ -51,6 +55,11 @@ export function toOrderRow(
     totalCents: order.totalCents,
     discountCents: order.discountCents,
     freightCents: order.freightCents ?? 0,
+    taxLocationId: order.taxLocationId ?? null,
+    taxPercent: order.taxPercent ?? 0,
+    taxCents: order.taxCents ?? 0,
+    taxLocationCode: order.taxLocation?.code ?? null,
+    taxLocationName: order.taxLocation?.name ?? null,
     notes: order.notes,
     approvedAt: toIsoString(order.approvedAt),
     itemCount: order.items?.length ?? 0,

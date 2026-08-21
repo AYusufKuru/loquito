@@ -49,10 +49,14 @@ export function computeOrderTotals(
   items: Array<{ totalCents: number }>,
   discountCents: number,
   freightCents: number,
-): { subtotalCents: number; totalCents: number } {
+  taxPercent = 0,
+): { subtotalCents: number; netCents: number; taxCents: number; totalCents: number } {
   const subtotalCents = items.reduce((sum, i) => sum + i.totalCents, 0);
-  const totalCents = Math.max(0, subtotalCents - discountCents + freightCents);
-  return { subtotalCents, totalCents };
+  const netCents = Math.max(0, subtotalCents - discountCents + freightCents);
+  const rate = Number.isFinite(taxPercent) ? Math.max(0, taxPercent) : 0;
+  const taxCents = Math.round(netCents * (rate / 100));
+  const totalCents = netCents + taxCents;
+  return { subtotalCents, netCents, taxCents, totalCents };
 }
 
 export function completeUnitBoxPrices(

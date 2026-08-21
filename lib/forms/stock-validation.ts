@@ -5,6 +5,7 @@ import {
   buildErrors,
   parseDecimal,
   parseNonNegativeInt,
+  parsePositiveInt,
   required,
   type FieldErrors,
 } from "./validation";
@@ -172,3 +173,29 @@ export function validatePurchaseReceiveForm(
 
   return buildErrors(entries);
 }
+
+export function validateSeparateStock(params: {
+  stockId: string;
+  quantity: string;
+  notes: string;
+  availableQty?: number;
+}): FieldErrors | null {
+  const entries: Array<[string, string | null | undefined]> = [
+    ["stockId", required(params.stockId, "Mamul lotu")],
+    ["notes", required(params.notes, "Not")],
+  ];
+
+  const qty = parsePositiveInt(params.quantity, "Ayırılacak adet", { min: 1 });
+  if (qty.error) {
+    entries.push(["quantity", qty.error]);
+  } else if (
+    qty.value != null &&
+    params.availableQty != null &&
+    qty.value > params.availableQty
+  ) {
+    entries.push(["quantity", `Kullanılabilir adet yetersiz (${params.availableQty}).`]);
+  }
+
+  return buildErrors(entries);
+}
+

@@ -15,6 +15,7 @@ import {
   listFixedExpenses,
   serializeFixedExpense,
 } from "@/lib/finance/service";
+import { listTaxLocations } from "@/lib/finance/tax-locations";
 import { t } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 
@@ -33,7 +34,7 @@ export default async function FinancePage() {
   const compareMonthA = "2026-01";
   const compareMonthB = initialMonth;
 
-  const [expenses, totalCents, overheadSummary, customers] = await Promise.all([
+  const [expenses, totalCents, overheadSummary, customers, taxLocations] = await Promise.all([
     listFixedExpenses(prisma, initialMonth),
     getMonthlyOverheadPool(prisma, initialMonth),
     getOverheadSummary(prisma, initialMonth),
@@ -43,6 +44,7 @@ export default async function FinancePage() {
       orderBy: { name: "asc" },
       take: 200,
     }),
+    listTaxLocations(prisma),
   ]);
 
   const labels: Record<string, string> = {
@@ -170,6 +172,21 @@ export default async function FinancePage() {
     reviewTitle: t("finance.reviewTitle"),
     reviewDesc: t("finance.reviewDesc"),
     reviewBadge: t("finance.reviewBadge"),
+    taxLocationsTab: t("finance.taxLocationsTab"),
+    taxLocationsTitle: t("finance.taxLocationsTitle"),
+    taxLocationsDesc: t("finance.taxLocationsDesc"),
+    taxCode: t("finance.taxCode"),
+    taxLocationName: t("finance.taxLocationName"),
+    taxLocationNameHint: t("finance.taxLocationNameHint"),
+    taxPercent: t("finance.taxPercent"),
+    addTaxLocation: t("finance.addTaxLocation"),
+    newTaxLocation: t("finance.newTaxLocation"),
+    noTaxLocations: t("finance.noTaxLocations"),
+    taxLocationCreated: t("finance.taxLocationCreated"),
+    taxLocationDeleted: t("finance.taxLocationDeleted"),
+    taxLocationDeactivated: t("finance.taxLocationDeactivated"),
+    edit: t("finance.edit"),
+    cancel: t("finance.cancel"),
   };
 
   return (
@@ -182,6 +199,7 @@ export default async function FinancePage() {
         compareMonthA={compareMonthA}
         compareMonthB={compareMonthB}
         customers={customers}
+        initialTaxLocations={taxLocations}
         canCreate={canCreate}
         canEdit={canEdit}
         canDelete={canDelete}

@@ -42,6 +42,8 @@ import type {
   OrdersCapabilities,
   OrderRow,
 } from "@/lib/orders/types";
+import type { TaxLocationRow } from "@/lib/finance/tax-locations";
+import { taxLocationLabel } from "@/lib/finance/tax-locations";
 import type { CustomerRow } from "@/lib/pricing/types";
 import {
   formatBrlFromCents,
@@ -66,6 +68,7 @@ interface OrdersSectionProps {
   customers: CustomerRow[];
   products: OrderProductOption[];
   capabilities: OrdersCapabilities;
+  taxLocations: TaxLocationRow[];
   labels: Record<string, string>;
   onAddProduct?: () => void;
 }
@@ -124,6 +127,7 @@ export function OrdersSection({
   customers,
   products,
   capabilities,
+  taxLocations,
   labels,
   onAddProduct,
 }: OrdersSectionProps) {
@@ -140,6 +144,9 @@ export function OrdersSection({
   const [deliveryDate, setDeliveryDate] = useState("");
   const [discountInput, setDiscountInput] = useState("0");
   const [freightInput, setFreightInput] = useState("0");
+  const [taxLocationId, setTaxLocationId] = useState(
+    taxLocations.find((l) => l.isActive)?.id ?? "",
+  );
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<OrderStatus>("draft");
   const [lines, setLines] = useState<LineState[]>([emptyLine(products)]);
@@ -247,6 +254,7 @@ export function OrdersSection({
     setDeliveryDate(o.deliveryDate ? o.deliveryDate.slice(0, 10) : "");
     setDiscountInput(centsToInput(o.discountCents));
     setFreightInput(centsToInput(o.freightCents));
+    setTaxLocationId(o.taxLocationId ?? "");
     setNotes(o.notes ?? "");
     setStatus(o.status as OrderStatus);
     setLines(
@@ -296,6 +304,7 @@ export function OrdersSection({
       setDeliveryDate("");
       setDiscountInput("0");
       setFreightInput("0");
+      setTaxLocationId(taxLocations.find((l) => l.isActive)?.id ?? "");
       setNotes("");
       setStatus("draft");
       setLines([emptyLine(filteredProducts)]);
@@ -330,9 +339,13 @@ export function OrdersSection({
         method: "POST",
         body: form,
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({} as { error?: string }));
       if (!res.ok) {
-        showError(data.error || labels.importFromPdfError);
+        showError(
+          typeof data.error === "string" && data.error.trim()
+            ? data.error
+            : labels.importFromPdfError,
+        );
         return;
       }
 
@@ -368,10 +381,13 @@ export function OrdersSection({
 
   const discountCents = parseBrlToCents(discountInput) ?? 0;
   const freightCents = parseBrlToCents(freightInput) ?? 0;
-  const { subtotalCents, totalCents } = computeOrderTotals(
+  const selectedTaxLocation = taxLocations.find((l) => l.id === taxLocationId);
+  const taxPercent = selectedTaxLocation?.taxPercent ?? 0;
+  const { subtotalCents, netCents, taxCents, totalCents } = computeOrderTotals(
     lines.map((l) => ({ totalCents: l.totalCents })),
     discountCents,
     freightCents,
+    taxPercent,
   );
 
   async function handleSave(targetStatus?: OrderStatus) {
@@ -380,6 +396,8 @@ export function OrdersSection({
         validateOrderForm({
           customerId,
           customerLabel: labels.customer,
+          taxLocationId,
+          taxLocationLabel: labels.taxLocation,
           inputMode,
           lines,
           discountInput,
@@ -402,6 +420,7 @@ export function OrdersSection({
       deliveryDate: deliveryDate || null,
       discountCents,
       freightCents,
+      taxLocationId: taxLocationId || null,
       notes,
       status: targetStatus ?? status,
       items: lines.map((l) => ({
@@ -728,6 +747,28 @@ export function OrdersSection({
                 </select>
               </div>
               <div className="space-y-2">
+                <Label>{labels.taxLocation}</Label>
+                {taxLocations.length === 0 ? (
+                  <p className="text-sm text-amber-600">{labels.noTaxLocations}</p>
+                ) : (
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={taxLocationId}
+                    onChange={(e) => setTaxLocationId(e.target.value)}
+                    disabled={!editable}
+                  >
+                    <option value="">{labels.taxLocationRequired}</option>
+                    {taxLocations
+                      .filter((l) => l.isActive || l.id === taxLocationId)
+                      .map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {taxLocationLabel(l)}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
+              <div className="space-y-2">
                 <Label>{labels.paymentTerms}</Label>
                 <Input
                   value={paymentTerms}
@@ -968,12 +1009,17 @@ export function OrdersSection({
               </div>
               <div className="rounded-lg border bg-primary/5 p-4 text-sm">
                 <div className="text-muted-foreground">{labels.subtotal}</div>
+                <div className="font-semibold tabular-nums">{formatBrlFromCents(subtotalCents)}</div>
+                <div className="text-muted-foreground mt-2">{labels.netTotal}</div>
+                <div className="tabular-nums">{formatBrlFromCents(netCents)}</div>
+                <div className="text-muted-foreground mt-2">
+                  {labels.taxAmount}
+                  {selectedTaxLocation ? ` (${taxPercent}%)` : ""}
+                </div>
+                <div className="tabular-nums">{formatBrlFromCents(taxCents)}</div>
                 <div className="text-muted-foreground mt-2">{labels.orderTotal}</div>
                 <div className="font-semibold text-2xl mt-1 tabular-nums">
                   {formatBrlFromCents(totalCents)}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {labels.subtotal}: {formatBrlFromCents(subtotalCents)}
                 </div>
               </div>
             </div>

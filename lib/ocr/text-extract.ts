@@ -1,5 +1,3 @@
-import { PDFParse } from "pdf-parse";
-
 /** PDF ve metin dosyalarından okunabilir metin çıkarır */
 export async function extractTextFromBuffer(
   buffer: Buffer,
@@ -11,16 +9,9 @@ export async function extractTextFromBuffer(
   }
 
   if (lower.endsWith(".pdf")) {
-    try {
-      const parser = new PDFParse({ data: buffer });
-      const result = await parser.getText();
-      await parser.destroy();
-      const text = result.text?.trim() ?? "";
-      if (text.replace(/\s/g, "").length > 40) {
-        return text;
-      }
-    } catch {
-      // Regex yedek yönteme düş
+    const fromParser = await extractWithPdfParse(buffer);
+    if (fromParser.replace(/\s/g, "").length > 40) {
+      return fromParser;
     }
     return extractTextFromPdfBuffer(buffer);
   }
@@ -30,6 +21,24 @@ export async function extractTextFromBuffer(
     return asText;
   }
   return extractTextFromPdfBuffer(buffer);
+}
+
+async function extractWithPdfParse(buffer: Buffer): Promise<string> {
+  try {
+    const { PDFParse } = await import("pdf-parse");
+
+    const data = Uint8Array.from(buffer);
+    const parser = new PDFParse({ data });
+    try {
+      const result = await parser.getText();
+      return result.text?.trim() ?? "";
+    } finally {
+      await parser.destroy().catch(() => undefined);
+    }
+  } catch (error) {
+    console.error("PDF metin çıkarma (pdf-parse) başarısız, yedek yönteme düşülüyor:", error);
+    return "";
+  }
 }
 
 function extractTextFromPdfBuffer(buffer: Buffer): string {

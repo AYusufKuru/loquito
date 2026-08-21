@@ -9,8 +9,10 @@ import { PeriodComparisonSection } from "@/components/finance/period-comparison-
 import { ReceiptsSection } from "@/components/finance/receipts-section";
 import { StatementMatchingSection } from "@/components/finance/statement-matching-section";
 import { StatementsSection } from "@/components/finance/statements-section";
+import { TaxLocationsSection } from "@/components/finance/tax-locations-section";
 import { cn } from "@/lib/utils";
 import type { FixedExpenseRow, OverheadSummary } from "@/lib/finance/types";
+import type { TaxLocationRow } from "@/lib/finance/tax-locations";
 
 type Tab =
   | "expenses"
@@ -19,7 +21,8 @@ type Tab =
   | "payments"
   | "matching"
   | "receipts"
-  | "statements";
+  | "statements"
+  | "tax";
 
 interface FinanceManagerProps {
   initialMonth: string;
@@ -29,6 +32,7 @@ interface FinanceManagerProps {
   compareMonthA: string;
   compareMonthB: string;
   customers: Array<{ id: string; name: string }>;
+  initialTaxLocations: TaxLocationRow[];
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
@@ -43,6 +47,7 @@ export function FinanceManager({
   compareMonthA,
   compareMonthB,
   customers,
+  initialTaxLocations,
   canCreate,
   canEdit,
   canDelete,
@@ -52,6 +57,7 @@ export function FinanceManager({
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "payments", label: labels.paymentsTab },
+    { id: "tax", label: labels.taxLocationsTab },
     { id: "matching", label: labels.matchingTab },
     { id: "statements", label: labels.statementsTab },
     { id: "receipts", label: labels.receiptsTab },
@@ -85,6 +91,15 @@ export function FinanceManager({
           <PaymentsSection
             canCreate={canCreate}
             canEdit={canEdit}
+            labels={labels}
+          />
+        )}
+        {tab === "tax" && (
+          <TaxLocationsSection
+            initialLocations={initialTaxLocations}
+            canCreate={canCreate}
+            canEdit={canEdit}
+            canDelete={canDelete}
             labels={labels}
           />
         )}

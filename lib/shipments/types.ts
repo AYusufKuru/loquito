@@ -10,6 +10,8 @@ export interface OrderShippingLine {
   shippedBoxes: number;
   remainingUnits: number;
   remainingBoxes: number;
+  separatedUnits: number;
+  separatedLots: Array<{ lotNo: string; quantity: number }>;
 }
 
 export interface OrderShippingProgress {
@@ -29,6 +31,8 @@ export interface ShipmentItemInput {
   boxCount: number;
   unitCount: number;
   lotNo?: string | null;
+  heldUnitCount?: number;
+  heldLotNo?: string | null;
   shortageUnits?: number;
   damageUnits?: number;
   returnUnits?: number;

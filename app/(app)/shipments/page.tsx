@@ -8,6 +8,7 @@ import { t } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { serializeShipment } from "@/lib/shipments/serialize";
 import { listShipments, listShippableOrders } from "@/lib/shipments/service";
+import { isCorreiosConfigured } from "@/lib/correios/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -45,6 +46,28 @@ export default async function ShipmentsPage() {
     driverName: t("shipments.driverName"),
     vehiclePlate: t("shipments.vehiclePlate"),
     trackingNo: t("shipments.trackingNo"),
+    trackingNoHint: t("shipments.trackingNoHint"),
+    trackingTitle: t("shipments.trackingTitle"),
+    trackingRefresh: t("shipments.trackingRefresh"),
+    trackingRefreshing: t("shipments.trackingRefreshing"),
+    trackingRefreshed: t("shipments.trackingRefreshed"),
+    trackingRefreshError: t("shipments.trackingRefreshError"),
+    trackingNotConfigured: t("shipments.trackingNotConfigured"),
+    trackingNoCode: t("shipments.trackingNoCode"),
+    trackingInvalidCode: t("shipments.trackingInvalidCode"),
+    trackingLastChecked: t("shipments.trackingLastChecked"),
+    trackingExpected: t("shipments.trackingExpected"),
+    trackingService: t("shipments.trackingService"),
+    trackingNoEvents: t("shipments.trackingNoEvents"),
+    trackingTimeline: t("shipments.trackingTimeline"),
+    trackingStatusPosted: t("shipments.trackingStatusPosted"),
+    trackingStatusInTransit: t("shipments.trackingStatusInTransit"),
+    trackingStatusOutForDelivery: t("shipments.trackingStatusOutForDelivery"),
+    trackingStatusWaitingPickup: t("shipments.trackingStatusWaitingPickup"),
+    trackingStatusDelivered: t("shipments.trackingStatusDelivered"),
+    trackingStatusReturned: t("shipments.trackingStatusReturned"),
+    trackingStatusIssue: t("shipments.trackingStatusIssue"),
+    trackingStatusUnknown: t("shipments.trackingStatusUnknown"),
     palletCount: t("shipments.palletCount"),
     sealNo: t("shipments.sealNo"),
     receivedBy: t("shipments.receivedBy"),
@@ -64,6 +87,10 @@ export default async function ShipmentsPage() {
     remainingUnits: t("shipments.remainingUnits"),
     shipBoxes: t("shipments.shipBoxes"),
     shipUnits: t("shipments.shipUnits"),
+    heldUnits: t("shipments.heldUnits"),
+    heldLotNo: t("shipments.heldLotNo"),
+    shipTotal: t("shipments.shipTotal"),
+    heldAvailable: t("shipments.heldAvailable"),
     lotNo: t("shipments.lotNo"),
     createShipment: t("shipments.createShipment"),
     creating: t("shipments.creating"),
@@ -129,6 +156,7 @@ export default async function ShipmentsPage() {
           canCreate={canCreate}
           canEdit={canEdit}
           canDelete={canDelete}
+          correiosConfigured={isCorreiosConfigured()}
           labels={labels}
         />
     </div>

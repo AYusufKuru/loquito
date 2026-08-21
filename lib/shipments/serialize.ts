@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
+import type { TrackingEvent, TrackingStatus } from "@/lib/correios/types";
+
 import { SHIPMENT_STATUS_LABELS } from "./constants";
 
 export const shipmentInclude = {
@@ -37,6 +39,8 @@ export interface SerializedShipmentItem {
   flavorName: string | null;
   packagingLabel: string | null;
   lotNo: string | null;
+  heldUnitCount: number;
+  heldLotNo: string | null;
   stockId: string | null;
   boxCount: number;
   unitCount: number;
@@ -63,6 +67,13 @@ export interface SerializedShipment {
   driverName: string | null;
   vehiclePlate: string | null;
   trackingNo: string | null;
+  trackingLastCheckedAt: string | null;
+  trackingStatus: TrackingStatus | null;
+  trackingStatusText: string | null;
+  trackingExpectedAt: string | null;
+  trackingService: string | null;
+  trackingEvents: TrackingEvent[];
+  trackingError: string | null;
   boxCount: number;
   palletCount: number;
   sealNo: string | null;
@@ -89,6 +100,26 @@ function iso(d: Date | null | undefined): string | null {
   return d ? d.toISOString() : null;
 }
 
+function parseTrackingEvents(raw: Prisma.JsonValue | null | undefined): TrackingEvent[] {
+  if (!Array.isArray(raw)) return [];
+  const events: TrackingEvent[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    events.push({
+      at: typeof row.at === "string" ? row.at : "",
+      code: typeof row.code === "string" ? row.code : "",
+      type: typeof row.type === "string" ? row.type : "",
+      description: typeof row.description === "string" ? row.description : "",
+      detail: typeof row.detail === "string" ? row.detail : null,
+      city: typeof row.city === "string" ? row.city : null,
+      uf: typeof row.uf === "string" ? row.uf : null,
+      unitType: typeof row.unitType === "string" ? row.unitType : null,
+    });
+  }
+  return events;
+}
+
 export function serializeShipment(
   row: ShipmentRow,
   extras?: { pendingDelete?: boolean },
@@ -112,6 +143,13 @@ export function serializeShipment(
     driverName: row.driverName,
     vehiclePlate: row.vehiclePlate,
     trackingNo: row.trackingNo,
+    trackingLastCheckedAt: iso(row.trackingLastCheckedAt),
+    trackingStatus: (row.trackingStatus as TrackingStatus | null) ?? null,
+    trackingStatusText: row.trackingStatusText,
+    trackingExpectedAt: iso(row.trackingExpectedAt),
+    trackingService: row.trackingService,
+    trackingEvents: parseTrackingEvents(row.trackingEvents),
+    trackingError: row.trackingError,
     boxCount: row.boxCount,
     palletCount: row.palletCount,
     sealNo: row.sealNo,
@@ -139,6 +177,8 @@ export function serializeShipment(
       flavorName: item.product?.flavor?.namePt ?? null,
       packagingLabel: item.product?.packaging?.label ?? null,
       lotNo: item.lotNo ?? item.stock?.lotNo ?? null,
+      heldUnitCount: item.heldUnitCount,
+      heldLotNo: item.heldLotNo,
       stockId: item.stockId,
       boxCount: item.boxCount,
       unitCount: item.unitCount,

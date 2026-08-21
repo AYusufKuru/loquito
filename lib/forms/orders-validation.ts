@@ -189,6 +189,8 @@ export interface OrderLineInput {
 export function validateOrderForm(params: {
   customerId: string;
   customerLabel: string;
+  taxLocationId: string;
+  taxLocationLabel: string;
   inputMode: "box" | "unit";
   lines: OrderLineInput[];
   discountInput: string;
@@ -196,6 +198,7 @@ export function validateOrderForm(params: {
 }): FieldErrors | null {
   const entries: Array<[string, string | null | undefined]> = [
     ["customerId", required(params.customerId, params.customerLabel)],
+    ["taxLocationId", required(params.taxLocationId, params.taxLocationLabel)],
   ];
 
   if (params.lines.length === 0) {

@@ -1,5 +1,5 @@
 import { parseMoneyBrl } from "./orders-validation";
-import { buildErrors, required, type FieldErrors } from "./validation";
+import { buildErrors, parseDecimal, required, type FieldErrors } from "./validation";
 
 export function validatePeriodMonth(
   value: string,
@@ -60,6 +60,21 @@ export function validateFileRequired(
 
 export function validateCustomerId(customerId: string): FieldErrors | null {
   return buildErrors([["customerId", required(customerId, "Müşteri")]]);
+}
+
+export function validateTaxLocationForm(form: {
+  code: string;
+  taxPercent: string;
+}): FieldErrors | null {
+  const entries: Array<[string, string | null | undefined]> = [
+    ["code", required(form.code, "Konum kodu")],
+  ];
+  const percent = parseDecimal(form.taxPercent, "KDV oranı", { required: true, min: 0 });
+  if (percent.error) entries.push(["taxPercent", percent.error]);
+  else if (percent.value !== null && percent.value > 100) {
+    entries.push(["taxPercent", "KDV oranı 100'den büyük olamaz."]);
+  }
+  return buildErrors(entries);
 }
 
 export function validateExpenseAmount(amount: string): FieldErrors | null {

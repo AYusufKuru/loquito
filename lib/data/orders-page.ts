@@ -1,4 +1,5 @@
 import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
+import { serializeTaxLocation } from "@/lib/finance/tax-locations";
 import { prisma } from "@/lib/prisma";
 import { toCatalogProductRow } from "@/lib/products/from-recipe";
 
@@ -15,10 +16,12 @@ export async function getOrdersPageData() {
         orderProducts,
         recipes,
         packagings,
+        taxLocations,
       ] = await Promise.all([
           prisma.order.findMany({
             include: {
               customer: { select: { name: true } },
+              taxLocation: { select: { code: true, name: true } },
               items: {
                 select: {
                   quantityBoxes: true,
@@ -93,6 +96,9 @@ export async function getOrdersPageData() {
               unitsPerBox: true,
             },
           }),
+          prisma.taxLocation.findMany({
+            orderBy: { code: "asc" },
+          }),
         ]);
 
       return {
@@ -110,6 +116,7 @@ export async function getOrdersPageData() {
         recipes,
         packagings,
         catalogProducts: orderProducts.map((p) => toCatalogProductRow(p)),
+        taxLocations: taxLocations.map(serializeTaxLocation),
       };
     },
     REVALIDATE.orders,

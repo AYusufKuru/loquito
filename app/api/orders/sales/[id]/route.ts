@@ -18,6 +18,7 @@ import {
 import type { OrderItemInput } from "@/lib/orders/types";
 import { resolvePrices } from "@/lib/pricing/resolve";
 import { prisma } from "@/lib/prisma";
+import { resolveTaxSnapshot } from "@/lib/finance/tax-locations";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -91,6 +92,18 @@ export async function PATCH(request: Request, context: RouteContext) {
       body.freightCents !== undefined
         ? Math.round(Number(body.freightCents) || 0)
         : existing.freightCents;
+    const requestedTaxLocationId =
+      body.taxLocationId !== undefined
+        ? typeof body.taxLocationId === "string" && body.taxLocationId.trim()
+          ? body.taxLocationId.trim()
+          : null
+        : existing.taxLocationId;
+    const tax = await resolveTaxSnapshot(prisma, requestedTaxLocationId, {
+      allowInactive: requestedTaxLocationId === existing.taxLocationId,
+    });
+    if (!tax.taxLocationId) {
+      return NextResponse.json({ error: "KDV konumu zorunludur." }, { status: 400 });
+    }
 
     const products = await findProductsByIds(items.map((item) => item.productId));
     const quantityUnit = quantityUnitForChannel(channel);
@@ -158,7 +171,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       };
     });
 
-    const { totalCents } = computeOrderTotals(enriched, discountCents, freightCents);
+    const { totalCents, taxCents } = computeOrderTotals(
+      enriched,
+      discountCents,
+      freightCents,
+      tax.taxPercent,
+    );
 
     let newStatus = existing.status;
     if (typeof body.status === "string" && body.status !== existing.status) {
@@ -195,6 +213,9 @@ export async function PATCH(request: Request, context: RouteContext) {
           totalCents,
           discountCents,
           freightCents,
+          taxLocationId: tax.taxLocationId,
+          taxPercent: tax.taxPercent,
+          taxCents,
           notes:
             typeof body.notes === "string" ? body.notes.trim() || null : existing.notes,
           items: {
@@ -206,8 +227,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const detail = await loadOrderDetail(id);
     return NextResponse.json({ order: detail });
-  } catch {
-    return NextResponse.json({ error: "Sipariş güncellenemedi." }, { status: 500 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Sipariş güncellenemedi.";
+    const clientError = message.includes("KDV") || message.includes("konum");
+    return NextResponse.json(
+      { error: message },
+      { status: clientError ? 400 : 500 },
+    );
   }
 }
 

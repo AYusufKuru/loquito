@@ -18,6 +18,7 @@ import type {
   PackagingPickOption,
   RecipePickOption,
 } from "@/lib/orders/types";
+import type { TaxLocationRow } from "@/lib/finance/tax-locations";
 import type {
   CustomerRow,
   PriceListRow,
@@ -40,6 +41,7 @@ interface OrdersManagerProps {
   salesReps: SalesRepRow[];
   priceLists: PriceListRow[];
   capabilities: OrdersCapabilities;
+  taxLocations: TaxLocationRow[];
   labels: Record<string, string>;
 }
 
@@ -56,6 +58,7 @@ export function OrdersManager({
   recipes,
   packagings,
   capabilities,
+  taxLocations,
   labels,
 }: OrdersManagerProps) {
   const [tab, setTab] = useState<Tab>("orders");
@@ -107,6 +110,7 @@ export function OrdersManager({
             customers={initialCustomers}
             products={sellable}
             capabilities={capabilities}
+            taxLocations={taxLocations}
             labels={labels}
             onAddProduct={() => setTab("products")}
           />

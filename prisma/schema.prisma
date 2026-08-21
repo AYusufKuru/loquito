@@ -103,6 +103,7 @@ model Flavor {
   recipes      Recipe[]
   finishedGoods FinishedGoodsStock[]
   finishedGoodsReservations FinishedGoodsReservation[]
+  separatedStock SeparatedStock[]
 }
 
 model Packaging {
@@ -119,6 +120,7 @@ model Packaging {
   recipeItems  RecipeItem[]
   finishedGoods FinishedGoodsStock[]
   finishedGoodsReservations FinishedGoodsReservation[]
+  separatedStock SeparatedStock[]
 }
 
 model Product {
@@ -145,6 +147,7 @@ model Product {
   finishedGoods FinishedGoodsStock[]
   productionOrders ProductionOrder[]
   shipmentItems ShipmentItem[]
+  separatedStock SeparatedStock[]
 
   @@index([flavorId])
   @@index([packagingId])
@@ -451,6 +454,9 @@ model Order {
   totalCents      Int             @default(0)
   discountCents   Int             @default(0)
   freightCents    Int             @default(0)
+  taxLocationId   String?
+  taxPercent      Float           @default(0)
+  taxCents        Int             @default(0)
   notes           String?
   approvedAt      DateTime?
   approvedById    String?
@@ -464,9 +470,11 @@ model Order {
   shipments       Shipment[]
   finishedGoodsReservations FinishedGoodsReservation[]
   gmailMessages             GmailInboxMessage[]
+  taxLocation               TaxLocation? @relation(fields: [taxLocationId], references: [id], onDelete: SetNull)
 
   @@index([customerId])
   @@index([status])
+  @@index([taxLocationId])
 }
 
 model OrderItem {
@@ -612,10 +620,32 @@ model FinishedGoodsStock {
   product      Product?   @relation(fields: [productId], references: [id])
   reservations FinishedGoodsReservation[]
   shipmentItems ShipmentItem[]
+  separatedFrom SeparatedStock[]
 
   @@unique([flavorId, packagingId, lotNo])
   @@index([flavorId])
   @@index([packagingId])
+}
+
+model SeparatedStock {
+  id            String             @id @default(cuid())
+  flavorId      String
+  packagingId   String
+  productId     String?
+  sourceStockId String?
+  lotNo         String?
+  quantity      Int                @default(0)
+  notes         String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  flavor        Flavor             @relation(fields: [flavorId], references: [id])
+  packaging     Packaging          @relation(fields: [packagingId], references: [id])
+  product       Product?           @relation(fields: [productId], references: [id])
+  sourceStock   FinishedGoodsStock? @relation(fields: [sourceStockId], references: [id], onDelete: SetNull)
+  shipmentItems ShipmentItem[]
+
+  @@index([flavorId, packagingId])
+  @@index([sourceStockId])
 }
 
 model FinishedGoodsReservation {
@@ -655,7 +685,14 @@ model Shipment {
   carrierName     String?
   driverName      String?
   vehiclePlate    String?
-  trackingNo      String?
+  trackingNo              String?
+  trackingLastCheckedAt   DateTime?
+  trackingStatus          String?
+  trackingStatusText      String?
+  trackingExpectedAt      DateTime?
+  trackingService         String?
+  trackingEvents          Json?
+  trackingError           String?
   boxCount        Int            @default(0)
   palletCount     Int            @default(0)
   sealNo          String?
@@ -692,6 +729,9 @@ model ShipmentItem {
   lotNo       String?
   boxCount    Int       @default(0)
   unitCount   Int       @default(0)
+  heldUnitCount Int     @default(0)
+  heldLotNo   String?
+  heldStockId String?
   shortageUnits Int     @default(0)
   damageUnits   Int     @default(0)
   returnUnits   Int     @default(0)
@@ -699,9 +739,11 @@ model ShipmentItem {
   orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   product     Product?  @relation(fields: [productId], references: [id])
   stock       FinishedGoodsStock? @relation(fields: [stockId], references: [id])
+  heldStock   SeparatedStock?     @relation(fields: [heldStockId], references: [id], onDelete: SetNull)
 
   @@index([shipmentId])
   @@index([orderItemId])
+  @@index([heldStockId])
 }
 
 // ─── İnsan Kaynakları ─────────────────────────────────────────────
@@ -769,6 +811,18 @@ model FixedExpense {
 
   @@unique([periodMonth, name])
   @@index([periodMonth])
+}
+
+model TaxLocation {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String?
+  taxPercent Float
+  isActive   Boolean  @default(true)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  orders     Order[]
 }
 
 model Payment {

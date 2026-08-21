@@ -37,6 +37,7 @@ export default async function OrdersPage() {
     recipes,
     packagings,
     catalogProducts,
+    taxLocations,
   } = await getOrdersPageData();
 
   const labels: Record<string, string> = {
@@ -145,6 +146,12 @@ export default async function OrdersPage() {
     margin: t("orders.margin"),
     orderDiscount: t("orders.orderDiscount"),
     freightAmount: t("orders.freightAmount"),
+    taxLocation: t("orders.taxLocation"),
+    taxLocationRequired: t("orders.taxLocationRequired"),
+    taxPercent: t("orders.taxPercent"),
+    taxAmount: t("orders.taxAmount"),
+    netTotal: t("orders.netTotal"),
+    noTaxLocations: t("orders.noTaxLocations"),
     subtotal: t("orders.subtotal"),
     orderTotal: t("orders.orderTotal"),
     saveDraft: t("orders.saveDraft"),
@@ -255,6 +262,7 @@ export default async function OrdersPage() {
         salesReps={salesReps.map(toSalesRepRow)}
         priceLists={priceLists.map(toPriceListRow)}
         capabilities={capabilities}
+        taxLocations={taxLocations}
         labels={labels}
       />
     </div>

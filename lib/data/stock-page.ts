@@ -6,6 +6,7 @@ import {
 } from "@/lib/finished-stock/service";
 import { cachedQuery, REVALIDATE } from "@/lib/cache/server";
 import { prisma } from "@/lib/prisma";
+import { listSeparatedStock } from "@/lib/separated-stock/service";
 import { computeStockAlerts, computeStockValuation } from "@/lib/stock/inventory";
 
 export async function getStockPageData() {
@@ -25,6 +26,7 @@ export async function getStockPageData() {
         finishedRows,
         finishedMatrix,
         finishedReservations,
+        separatedRows,
         reserveOrders,
       ] = await Promise.all([
         prisma.material.findMany({
@@ -70,6 +72,7 @@ export async function getStockPageData() {
         listFinishedStock(prisma),
         buildFinishedStockMatrix(prisma),
         listReservations(prisma),
+        listSeparatedStock(prisma),
         prisma.order.findMany({
           where: {
             status: { in: ["approved", "in_production", "ready_ship"] },
@@ -96,6 +99,7 @@ export async function getStockPageData() {
         finishedMatrix,
         finishedSummary,
         finishedReservations,
+        separatedRows,
         reserveOrders,
       };
     },

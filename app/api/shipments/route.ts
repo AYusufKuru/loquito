@@ -62,6 +62,8 @@ export async function POST(request: Request) {
       boxCount: Math.max(0, Math.floor(Number(item.boxCount) || 0)),
       unitCount: Math.max(0, Math.floor(Number(item.unitCount) || 0)),
       lotNo: typeof item.lotNo === "string" ? item.lotNo : null,
+      heldUnitCount: Math.max(0, Math.floor(Number(item.heldUnitCount) || 0)),
+      heldLotNo: typeof item.heldLotNo === "string" ? item.heldLotNo : null,
       shortageUnits: Math.max(0, Math.floor(Number(item.shortageUnits) || 0)),
       damageUnits: Math.max(0, Math.floor(Number(item.damageUnits) || 0)),
       returnUnits: Math.max(0, Math.floor(Number(item.returnUnits) || 0)),

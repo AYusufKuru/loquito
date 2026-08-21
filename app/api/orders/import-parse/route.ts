@@ -79,8 +79,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ draft, formDraft });
   } catch (error) {
+    console.error("PDF sipariş içe aktarma hatası:", error);
     const message =
       error instanceof Error ? error.message : "Dosya işlenemedi.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

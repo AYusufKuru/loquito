@@ -15,8 +15,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
 import { PromptDialog } from "@/components/ui/prompt-dialog";
+import {
+  TrackingPanel,
+  listTrackingBadgeLabel,
+  listTrackingBadgeVariant,
+} from "@/components/shipments/tracking-panel";
 import { useFormErrors } from "@/hooks/use-form-errors";
 import { useLiveState } from "@/hooks/use-live-state";
+import { isCorreiosTrackingCode } from "@/lib/correios/code";
 import { apiFetch } from "@/lib/http";
 import {
   validateCreateShipment,
@@ -42,6 +48,8 @@ interface LineDraft {
   boxCount: string;
   unitCount: string;
   lotNo: string;
+  heldUnitCount: string;
+  heldLotNo: string;
 }
 
 interface ShipmentsSectionProps {
@@ -50,6 +58,7 @@ interface ShipmentsSectionProps {
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  correiosConfigured: boolean;
   labels: Record<string, string>;
 }
 
@@ -66,6 +75,7 @@ export function ShipmentsSection({
   canCreate,
   canEdit,
   canDelete,
+  correiosConfigured,
   labels,
 }: ShipmentsSectionProps) {
   const [shipments, setShipments] = useLiveState(initialShipments);
@@ -132,6 +142,8 @@ export function ShipmentsSection({
             boxCount: String(Math.min(l.remainingBoxes, l.remainingBoxes)),
             unitCount: String(l.remainingUnits),
             lotNo: "",
+            heldUnitCount: "",
+            heldLotNo: "",
           })),
       );
     } catch {
@@ -216,12 +228,14 @@ export function ShipmentsSection({
     clearErrors();
     try {
       const items = lineDrafts
-        .filter((l) => Number(l.unitCount) > 0)
+        .filter((l) => Number(l.unitCount) > 0 || Number(l.heldUnitCount) > 0)
         .map((l) => ({
           orderItemId: l.orderItemId,
           boxCount: Math.max(0, Math.floor(Number(l.boxCount) || 0)),
           unitCount: Math.max(0, Math.floor(Number(l.unitCount) || 0)),
           lotNo: l.lotNo.trim() || null,
+          heldUnitCount: Math.max(0, Math.floor(Number(l.heldUnitCount) || 0)),
+          heldLotNo: l.heldLotNo.trim() || null,
         }));
 
       const res = await apiFetch("/api/shipments", {
@@ -288,6 +302,34 @@ export function ShipmentsSection({
       palletCount: Number(palletCount) || 0,
       sealNo,
     });
+  };
+
+  const handleRefreshTracking = async () => {
+    if (!detail) return;
+    if (canEdit && trackingNo.trim() !== (detail.trackingNo ?? "")) {
+      const saved = await handleSaveCarrier();
+      if (!saved) return;
+    }
+    setLoading(true);
+    clearErrors();
+    try {
+      const res = await apiFetch(`/api/shipments/${detail.id}/track`, { method: "POST" });
+      const data = await res.json();
+      if (data.shipment) {
+        setDetail(data.shipment);
+        setTrackingNo(data.shipment.trackingNo ?? "");
+        await refreshList();
+      }
+      if (!res.ok) {
+        showApiError(data, labels.trackingRefreshError);
+        return;
+      }
+      setMessage(labels.trackingRefreshed);
+    } catch {
+      showError(labels.connectionError);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveChecklist = () =>
@@ -473,7 +515,14 @@ export function ShipmentsSection({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{s.shipmentNo}</span>
-                      <Badge variant={statusVariant(s.status)}>{s.statusLabel}</Badge>
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                        {listTrackingBadgeLabel(s.trackingStatus, labels) && (
+                          <Badge variant={listTrackingBadgeVariant(s.trackingStatus)}>
+                            {listTrackingBadgeLabel(s.trackingStatus, labels)}
+                          </Badge>
+                        )}
+                        <Badge variant={statusVariant(s.status)}>{s.statusLabel}</Badge>
+                      </div>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {s.orderNo} · {s.customerName}
@@ -554,6 +603,10 @@ export function ShipmentsSection({
                   <p className="text-sm font-medium">{labels.partialShipTitle}</p>
                   {lineDrafts.map((draft, idx) => {
                     const line = progress?.lines.find((l) => l.orderItemId === draft.orderItemId);
+                    const warehouseQty = Number(draft.unitCount) || 0;
+                    const heldQty = Number(draft.heldUnitCount) || 0;
+                    const remaining = line?.remainingUnits ?? 0;
+                    const total = warehouseQty + heldQty;
                     return (
                       <div key={draft.orderItemId} className="rounded-md border p-3 space-y-2">
                         <p className="text-sm font-medium">
@@ -562,6 +615,9 @@ export function ShipmentsSection({
                         <p className="text-xs text-muted-foreground">
                           {labels.orderedUnits}: {line?.orderedUnits} · {labels.shippedUnits}:{" "}
                           {line?.shippedUnits} · {labels.remainingUnits}: {line?.remainingUnits}
+                          {(line?.separatedUnits ?? 0) > 0
+                            ? ` · ${labels.heldAvailable}: ${line?.separatedUnits}`
+                            : ""}
                         </p>
                         <div className="grid grid-cols-3 gap-2">
                           <div>
@@ -584,10 +640,13 @@ export function ShipmentsSection({
                             <Input
                               value={draft.unitCount}
                               onChange={(e) => {
+                                const nextWarehouse = Number(sanitizeIntInput(e.target.value)) || 0;
+                                const held = Number(draft.heldUnitCount) || 0;
+                                const capped = Math.max(0, Math.min(nextWarehouse, remaining - held));
                                 const next = [...lineDrafts];
                                 next[idx] = {
                                   ...draft,
-                                  unitCount: sanitizeIntInput(e.target.value),
+                                  unitCount: capped ? String(capped) : "",
                                 };
                                 setLineDrafts(next);
                                 clearFieldError(`line-${idx}-units`);
@@ -607,6 +666,69 @@ export function ShipmentsSection({
                             />
                           </div>
                         </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label className="text-xs">{labels.heldUnits}</Label>
+                            <Input
+                              value={draft.heldUnitCount}
+                              onChange={(e) => {
+                                const rawHeld = Number(sanitizeIntInput(e.target.value)) || 0;
+                                const prevHeld = Number(draft.heldUnitCount) || 0;
+                                const prevWarehouse = Number(draft.unitCount) || 0;
+                                const nextHeld = Math.max(0, Math.min(rawHeld, remaining));
+                                const nextWarehouse = Math.max(
+                                  0,
+                                  Math.min(prevWarehouse + prevHeld - nextHeld, remaining - nextHeld),
+                                );
+                                const next = [...lineDrafts];
+                                next[idx] = {
+                                  ...draft,
+                                  heldUnitCount: nextHeld ? String(nextHeld) : "",
+                                  unitCount: nextWarehouse ? String(nextWarehouse) : "",
+                                  heldLotNo:
+                                    nextHeld === 0
+                                      ? ""
+                                      : draft.heldLotNo || line?.separatedLots[0]?.lotNo || "",
+                                };
+                                setLineDrafts(next);
+                                clearFieldError(`line-${idx}-held`);
+                                clearFieldError(`line-${idx}-held-lot`);
+                                clearFieldError(`line-${idx}-units`);
+                                clearFieldError("lines");
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">{labels.heldLotNo}</Label>
+                            <Input
+                              value={draft.heldLotNo}
+                              onChange={(e) => {
+                                const next = [...lineDrafts];
+                                next[idx] = { ...draft, heldLotNo: e.target.value };
+                                setLineDrafts(next);
+                                clearFieldError(`line-${idx}-held-lot`);
+                              }}
+                              list={`held-lots-${draft.orderItemId}`}
+                            />
+                            <datalist id={`held-lots-${draft.orderItemId}`}>
+                              {(line?.separatedLots ?? []).map((lot) => (
+                                <option key={`${lot.lotNo}-${lot.quantity}`} value={lot.lotNo}>
+                                  {lot.lotNo} ({lot.quantity})
+                                </option>
+                              ))}
+                            </datalist>
+                          </div>
+                          <div>
+                            <Label className="text-xs">{labels.shipTotal}</Label>
+                            <p className="mt-2 text-sm font-medium">{total}</p>
+                          </div>
+                        </div>
+                        {fieldError(`line-${idx}-held`) && (
+                          <p className="text-xs text-destructive">{fieldError(`line-${idx}-held`)}</p>
+                        )}
+                        {fieldError(`line-${idx}-held-lot`) && (
+                          <p className="text-xs text-destructive">{fieldError(`line-${idx}-held-lot`)}</p>
+                        )}
                       </div>
                     );
                   })}
@@ -686,7 +808,24 @@ export function ShipmentsSection({
                 </div>
                 <div>
                   <Label>{labels.trackingNo}</Label>
-                  <Input className="mt-1" value={trackingNo} onChange={(e) => setTrackingNo(e.target.value)} disabled={!canEdit} />
+                  <Input
+                    className="mt-1"
+                    value={trackingNo}
+                    onChange={(e) => setTrackingNo(e.target.value)}
+                    disabled={!canEdit}
+                    placeholder="AA123456789BR"
+                  />
+                  <p
+                    className={`mt-1 text-xs ${
+                      trackingNo.trim() && !isCorreiosTrackingCode(trackingNo)
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {trackingNo.trim() && !isCorreiosTrackingCode(trackingNo)
+                      ? labels.trackingInvalidCode
+                      : labels.trackingNoHint}
+                  </p>
                 </div>
                 <FormField label={labels.palletCount} error={fieldError("palletCount")}>
                   <Input
@@ -710,6 +849,17 @@ export function ShipmentsSection({
                   {labels.saveCarrier}
                 </Button>
               )}
+
+              <TrackingPanel
+                shipment={detail}
+                draftTrackingNo={trackingNo}
+                configured={correiosConfigured}
+                loading={loading}
+                labels={labels}
+                onRefresh={() => {
+                  void handleRefreshTracking();
+                }}
+              />
 
               <div>
                 <p className="mb-2 font-medium">{labels.checklistTitle}</p>
@@ -751,6 +901,9 @@ export function ShipmentsSection({
                         {" "}
                         — {item.boxCount} koli / {item.unitCount} adet
                         {item.lotNo ? ` · Lot ${item.lotNo}` : ""}
+                        {item.heldUnitCount > 0
+                          ? ` · ${labels.heldUnits}: ${item.heldUnitCount}${item.heldLotNo ? ` (${item.heldLotNo})` : ""}`
+                          : ""}
                       </span>
                     </div>
                   ))}

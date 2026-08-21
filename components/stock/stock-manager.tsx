@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/http";
 
 import { PurchaseOrdersSection } from "@/components/stock/purchase-orders-section";
 import { FinishedGoodsSection } from "@/components/stock/finished-goods-section";
+import { SeparatedStockSection } from "@/components/stock/separated-stock-section";
 import { AlertsSummary } from "@/components/stock/alerts-summary";
 import { LotsSection } from "@/components/stock/lots-section";
 import { MaterialsSection } from "@/components/stock/materials-section";
@@ -18,6 +19,7 @@ import type {
   FinishedStockRow,
   FinishedStockSummary,
 } from "@/lib/finished-stock/types";
+import type { SeparatedStockRow } from "@/lib/separated-stock/types";
 import type {
   FlavorOption,
   LotRow,
@@ -29,7 +31,14 @@ import type {
   SupplierOption,
 } from "@/lib/stock/types";
 
-type StockTab = "overview" | "materials" | "purchaseOrders" | "lots" | "movements" | "finished";
+type StockTab =
+  | "overview"
+  | "materials"
+  | "purchaseOrders"
+  | "lots"
+  | "movements"
+  | "finished"
+  | "separated";
 
 interface StockManagerProps {
   materials: MaterialRow[];
@@ -44,6 +53,7 @@ interface StockManagerProps {
   finishedMatrix: FinishedStockMatrixCell[];
   finishedSummary: FinishedStockSummary;
   finishedReservations: FinishedStockReservationRow[];
+  separatedRows: SeparatedStockRow[];
   reserveOrders: Array<{
     id: string;
     orderNo: string;
@@ -66,6 +76,7 @@ export function StockManager({
   finishedMatrix,
   finishedSummary,
   finishedReservations,
+  separatedRows,
   reserveOrders,
   labels,
 }: StockManagerProps) {
@@ -117,6 +128,7 @@ export function StockManager({
     { id: "lots", label: labels.lotsTab },
     { id: "movements", label: labels.movementsTab },
     { id: "finished", label: labels.finishedTab },
+    { id: "separated", label: labels.separatedTab },
   ];
 
   const releasedLots = lots.filter((l) => l.isUsable);
@@ -190,6 +202,14 @@ export function StockManager({
             initialSummary={finishedSummary}
             initialReservations={finishedReservations}
             reserveOrders={reserveOrders}
+            canEdit={capabilities.canEdit}
+            labels={labels}
+          />
+        )}
+        {tab === "separated" && (
+          <SeparatedStockSection
+            initialRows={separatedRows}
+            sourceLots={finishedRows}
             canEdit={capabilities.canEdit}
             labels={labels}
           />

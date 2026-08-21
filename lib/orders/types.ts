@@ -47,6 +47,11 @@ export interface OrderRow {
   totalCents: number;
   discountCents: number;
   freightCents: number;
+  taxLocationId: string | null;
+  taxPercent: number;
+  taxCents: number;
+  taxLocationCode: string | null;
+  taxLocationName: string | null;
   notes: string | null;
   approvedAt: string | null;
   itemCount: number;
@@ -56,6 +61,7 @@ export interface OrderRow {
 export interface OrderDetail extends OrderRow {
   items: OrderItemRow[];
   subtotalCents: number;
+  netCents: number;
 }
 
 export interface OrderProductOption {

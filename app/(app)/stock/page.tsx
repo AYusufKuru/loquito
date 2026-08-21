@@ -35,6 +35,7 @@ export default async function StockPage() {
     finishedMatrix,
     finishedSummary,
     finishedReservations,
+    separatedRows,
     reserveOrders,
   } = await getStockPageData();
 
@@ -140,6 +141,20 @@ export default async function StockPage() {
     recordMovement: t("stock.recordMovement"),
     movementSaved: t("stock.movementSaved"),
     finishedTab: t("stock.finishedTab"),
+    separatedTab: t("stock.separatedTab"),
+    separatedTitle: t("stock.separatedTitle"),
+    separatedDesc: t("stock.separatedDesc"),
+    separatedListTitle: t("stock.separatedListTitle"),
+    separatedEmpty: t("stock.separatedEmpty"),
+    separateAction: t("stock.separateAction"),
+    separating: t("stock.separating"),
+    separatedOk: t("stock.separatedOk"),
+    separateError: t("stock.separateError"),
+    selectFinishedLot: t("stock.selectFinishedLot"),
+    separateQty: t("stock.separateQty"),
+    separateNotes: t("stock.separateNotes"),
+    separateNotesPlaceholder: t("stock.separateNotesPlaceholder"),
+    separatedDate: t("stock.separatedDate"),
     matrixTitle: t("stock.matrixTitle"),
     matrixDesc: t("stock.matrixDesc"),
     totalUnits: t("stock.totalUnits"),
@@ -244,6 +259,7 @@ export default async function StockPage() {
       finishedMatrix={finishedMatrix}
       finishedSummary={finishedSummary}
       finishedReservations={finishedReservations}
+      separatedRows={separatedRows}
       reserveOrders={reserveOrders.map((o) => ({
         id: o.id,
         orderNo: o.orderNo,

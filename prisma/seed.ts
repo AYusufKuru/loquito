@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
+import { upsertBrazilStateTaxes } from "../lib/finance/tax-locations";
+
 import { buildPackagingTemplate } from "../lib/recipes/packaging";
 import {
   buildPlannedConsumptions,
@@ -49,6 +51,7 @@ async function clearDatabase() {
   await prisma.orderDocument.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.taxLocation.deleteMany();
   await prisma.finishedGoodsReservation.deleteMany();
   await prisma.finishedGoodsStock.deleteMany();
   await prisma.priceTier.deleteMany();
@@ -957,6 +960,8 @@ async function seedHRAndFinance() {
     });
   }
 
+  await upsertBrazilStateTaxes(prisma);
+
   // Önceki ay karşılaştırma demo (birkaç kalem hafif farklı)
   const prevMonth = "2026-01";
   for (const expense of FIXED_EXPENSES.slice(0, 5)) {
@@ -1130,7 +1135,7 @@ async function main() {
   console.log("✓ Demo canlı üretim emri (Kazan 1)");
 
   await seedHRAndFinance();
-  console.log("✓ Personel ve sabit giderler");
+  console.log("✓ Personel, sabit giderler ve eyalet vergileri");
 
   await seedDemoLabor();
   console.log("✓ Demo puantaj ve iş atamaları (işçilik maliyeti)");

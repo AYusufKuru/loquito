@@ -64,15 +64,32 @@ export function validateCustomerId(customerId: string): FieldErrors | null {
 
 export function validateTaxLocationForm(form: {
   code: string;
-  taxPercent: string;
+  name: string;
+  salesTaxPercent: string;
+  purchaseTaxPercent: string;
 }): FieldErrors | null {
   const entries: Array<[string, string | null | undefined]> = [
-    ["code", required(form.code, "Konum kodu")],
+    ["code", required(form.code, "Eyalet kodu")],
+    ["name", required(form.name, "Eyalet")],
   ];
-  const percent = parseDecimal(form.taxPercent, "KDV oranı", { required: true, min: 0 });
-  if (percent.error) entries.push(["taxPercent", percent.error]);
-  else if (percent.value !== null && percent.value > 100) {
-    entries.push(["taxPercent", "KDV oranı 100'den büyük olamaz."]);
+  const sales = parseDecimal(form.salesTaxPercent, "Hazır ürün satış vergisi", {
+    required: true,
+    min: 0,
+  });
+  if (sales.error) entries.push(["salesTaxPercent", sales.error]);
+  else if (sales.value !== null && sales.value > 100) {
+    entries.push(["salesTaxPercent", "Hazır ürün satış vergisi 100'den büyük olamaz."]);
+  }
+
+  if (form.purchaseTaxPercent.trim()) {
+    const purchase = parseDecimal(form.purchaseTaxPercent, "Hammadde alış vergisi", {
+      required: false,
+      min: 0,
+    });
+    if (purchase.error) entries.push(["purchaseTaxPercent", purchase.error]);
+    else if (purchase.value !== null && purchase.value > 100) {
+      entries.push(["purchaseTaxPercent", "Hammadde alış vergisi 100'den büyük olamaz."]);
+    }
   }
   return buildErrors(entries);
 }

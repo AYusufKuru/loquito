@@ -382,7 +382,7 @@ export function OrdersSection({
   const discountCents = parseBrlToCents(discountInput) ?? 0;
   const freightCents = parseBrlToCents(freightInput) ?? 0;
   const selectedTaxLocation = taxLocations.find((l) => l.id === taxLocationId);
-  const taxPercent = selectedTaxLocation?.taxPercent ?? 0;
+  const taxPercent = selectedTaxLocation?.salesTaxPercent ?? 0;
   const { subtotalCents, netCents, taxCents, totalCents } = computeOrderTotals(
     lines.map((l) => ({ totalCents: l.totalCents })),
     discountCents,

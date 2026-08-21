@@ -814,15 +814,17 @@ model FixedExpense {
 }
 
 model TaxLocation {
-  id         String   @id @default(cuid())
-  code       String   @unique
-  name       String?
-  taxPercent Float
-  isActive   Boolean  @default(true)
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  orders     Order[]
+  id                 String   @id @default(cuid())
+  code               String   @unique
+  name               String?
+  region             String?
+  purchaseTaxPercent Float?
+  salesTaxPercent    Float    @default(0)
+  isActive           Boolean  @default(true)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  orders             Order[]
 }
 
 model Payment {

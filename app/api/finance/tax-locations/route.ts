@@ -34,7 +34,14 @@ export async function POST(request: Request) {
     const location = await createTaxLocation(prisma, {
       code: typeof body.code === "string" ? body.code : "",
       name: typeof body.name === "string" ? body.name : null,
-      taxPercent: Number(body.taxPercent),
+      region: typeof body.region === "string" ? body.region : null,
+      purchaseTaxPercent:
+        body.purchaseTaxPercent === null || body.purchaseTaxPercent === ""
+          ? null
+          : body.purchaseTaxPercent !== undefined
+            ? Number(body.purchaseTaxPercent)
+            : null,
+      salesTaxPercent: Number(body.salesTaxPercent),
       notes: typeof body.notes === "string" ? body.notes : null,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
     });

@@ -17,7 +17,14 @@ export async function PATCH(
     const location = await updateTaxLocation(prisma, id, {
       code: typeof body.code === "string" ? body.code : undefined,
       name: body.name !== undefined ? (typeof body.name === "string" ? body.name : null) : undefined,
-      taxPercent: body.taxPercent !== undefined ? Number(body.taxPercent) : undefined,
+      region: body.region !== undefined ? (typeof body.region === "string" ? body.region : null) : undefined,
+      purchaseTaxPercent:
+        body.purchaseTaxPercent !== undefined
+          ? body.purchaseTaxPercent === null || body.purchaseTaxPercent === ""
+            ? null
+            : Number(body.purchaseTaxPercent)
+          : undefined,
+      salesTaxPercent: body.salesTaxPercent !== undefined ? Number(body.salesTaxPercent) : undefined,
       notes: body.notes !== undefined ? (typeof body.notes === "string" ? body.notes : null) : undefined,
       isActive: body.isActive !== undefined ? Boolean(body.isActive) : undefined,
     });

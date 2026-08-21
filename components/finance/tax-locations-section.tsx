@@ -33,10 +33,17 @@ function emptyForm() {
   return {
     code: "",
     name: "",
-    taxPercent: "",
+    region: "",
+    purchaseTaxPercent: "",
+    salesTaxPercent: "",
     notes: "",
     isActive: true,
   };
+}
+
+function formatPercent(value: number | null): string {
+  if (value == null) return "—";
+  return `${value}%`;
 }
 
 export function TaxLocationsSection({
@@ -89,7 +96,9 @@ export function TaxLocationsSection({
       !applyValidationErrors(
         validateTaxLocationForm({
           code: form.code,
-          taxPercent: form.taxPercent,
+          name: form.name,
+          salesTaxPercent: form.salesTaxPercent,
+          purchaseTaxPercent: form.purchaseTaxPercent,
         }),
       )
     ) {
@@ -105,7 +114,11 @@ export function TaxLocationsSection({
         body: JSON.stringify({
           code: form.code,
           name: form.name.trim() || null,
-          taxPercent: Number(form.taxPercent.replace(",", ".")),
+          region: form.region.trim() || null,
+          purchaseTaxPercent: form.purchaseTaxPercent.trim()
+            ? Number(form.purchaseTaxPercent.replace(",", "."))
+            : null,
+          salesTaxPercent: Number(form.salesTaxPercent.replace(",", ".")),
           notes: form.notes.trim() || null,
           isActive: form.isActive,
         }),
@@ -133,7 +146,9 @@ export function TaxLocationsSection({
     setEditForm({
       code: row.code,
       name: row.name ?? "",
-      taxPercent: String(row.taxPercent),
+      region: row.region ?? "",
+      purchaseTaxPercent: row.purchaseTaxPercent == null ? "" : String(row.purchaseTaxPercent),
+      salesTaxPercent: String(row.salesTaxPercent),
       notes: row.notes ?? "",
       isActive: row.isActive,
     });
@@ -147,7 +162,9 @@ export function TaxLocationsSection({
       !applyValidationErrors(
         validateTaxLocationForm({
           code: editForm.code,
-          taxPercent: editForm.taxPercent,
+          name: editForm.name,
+          salesTaxPercent: editForm.salesTaxPercent,
+          purchaseTaxPercent: editForm.purchaseTaxPercent,
         }),
       )
     ) {
@@ -163,7 +180,11 @@ export function TaxLocationsSection({
         body: JSON.stringify({
           code: editForm.code,
           name: editForm.name.trim() || null,
-          taxPercent: Number(editForm.taxPercent.replace(",", ".")),
+          region: editForm.region.trim() || null,
+          purchaseTaxPercent: editForm.purchaseTaxPercent.trim()
+            ? Number(editForm.purchaseTaxPercent.replace(",", "."))
+            : null,
+          salesTaxPercent: Number(editForm.salesTaxPercent.replace(",", ".")),
           notes: editForm.notes.trim() || null,
           isActive: editForm.isActive,
         }),
@@ -246,25 +267,56 @@ export function TaxLocationsSection({
                     placeholder="SP"
                   />
                 </FormField>
-                <FormField label={labels.taxLocationName}>
+                <FormField label={labels.taxLocationName} error={fieldError("name")} required>
                   <Input
                     value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    onChange={(e) => {
+                      clearFieldError("name");
+                      setForm((f) => ({ ...f, name: e.target.value }));
+                    }}
                     placeholder={labels.taxLocationNameHint}
                   />
                 </FormField>
-                <FormField label={labels.taxPercent} error={fieldError("taxPercent")} required>
+                <FormField label={labels.taxRegion}>
                   <Input
-                    value={form.taxPercent}
+                    value={form.region}
+                    onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
+                    placeholder="Güneydoğu"
+                  />
+                </FormField>
+                <FormField
+                  label={labels.purchaseTaxPercent}
+                  error={fieldError("purchaseTaxPercent")}
+                >
+                  <Input
+                    value={form.purchaseTaxPercent}
                     inputMode="decimal"
                     onChange={(e) => {
-                      clearFieldError("taxPercent");
+                      clearFieldError("purchaseTaxPercent");
                       setForm((f) => ({
                         ...f,
-                        taxPercent: sanitizeDecimalInput(e.target.value),
+                        purchaseTaxPercent: sanitizeDecimalInput(e.target.value),
                       }));
                     }}
-                    placeholder="18"
+                    placeholder="7"
+                  />
+                </FormField>
+                <FormField
+                  label={labels.salesTaxPercent}
+                  error={fieldError("salesTaxPercent")}
+                  required
+                >
+                  <Input
+                    value={form.salesTaxPercent}
+                    inputMode="decimal"
+                    onChange={(e) => {
+                      clearFieldError("salesTaxPercent");
+                      setForm((f) => ({
+                        ...f,
+                        salesTaxPercent: sanitizeDecimalInput(e.target.value),
+                      }));
+                    }}
+                    placeholder="17"
                   />
                 </FormField>
               </div>
@@ -310,9 +362,10 @@ export function TaxLocationsSection({
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="py-2 pr-3 font-medium">{labels.taxCode}</th>
                     <th className="py-2 pr-3 font-medium">{labels.taxLocationName}</th>
-                    <th className="py-2 pr-3 font-medium">{labels.taxPercent}</th>
+                    <th className="py-2 pr-3 font-medium">{labels.taxRegion}</th>
+                    <th className="py-2 pr-3 font-medium">{labels.purchaseTaxPercent}</th>
+                    <th className="py-2 pr-3 font-medium">{labels.salesTaxPercent}</th>
                     <th className="py-2 pr-3 font-medium">{labels.status}</th>
-                    <th className="py-2 font-medium">{labels.notes}</th>
                     <th />
                   </tr>
                 </thead>
@@ -322,15 +375,12 @@ export function TaxLocationsSection({
                       <tr key={row.id} className="border-b bg-muted/30">
                         <td className="py-2 pr-3">
                           <Input
-                            className="h-8"
+                            className="h-8 w-16"
                             value={editForm.code}
                             onChange={(e) =>
                               setEditForm((f) => ({ ...f, code: e.target.value }))
                             }
                           />
-                          {fieldError("code") && (
-                            <p className="mt-1 text-xs text-destructive">{fieldError("code")}</p>
-                          )}
                         </td>
                         <td className="py-2 pr-3">
                           <Input
@@ -343,21 +393,38 @@ export function TaxLocationsSection({
                         </td>
                         <td className="py-2 pr-3">
                           <Input
-                            className="h-8 w-24"
-                            value={editForm.taxPercent}
+                            className="h-8 w-28"
+                            value={editForm.region}
+                            onChange={(e) =>
+                              setEditForm((f) => ({ ...f, region: e.target.value }))
+                            }
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <Input
+                            className="h-8 w-20"
+                            value={editForm.purchaseTaxPercent}
                             inputMode="decimal"
                             onChange={(e) =>
                               setEditForm((f) => ({
                                 ...f,
-                                taxPercent: sanitizeDecimalInput(e.target.value),
+                                purchaseTaxPercent: sanitizeDecimalInput(e.target.value),
                               }))
                             }
                           />
-                          {fieldError("taxPercent") && (
-                            <p className="mt-1 text-xs text-destructive">
-                              {fieldError("taxPercent")}
-                            </p>
-                          )}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <Input
+                            className="h-8 w-20"
+                            value={editForm.salesTaxPercent}
+                            inputMode="decimal"
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                salesTaxPercent: sanitizeDecimalInput(e.target.value),
+                              }))
+                            }
+                          />
                         </td>
                         <td className="py-2 pr-3">
                           <label className="flex items-center gap-2">
@@ -370,15 +437,6 @@ export function TaxLocationsSection({
                             />
                             {labels.isActive}
                           </label>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <Input
-                            className="h-8"
-                            value={editForm.notes}
-                            onChange={(e) =>
-                              setEditForm((f) => ({ ...f, notes: e.target.value }))
-                            }
-                          />
                         </td>
                         <td className="py-2 whitespace-nowrap">
                           <Button size="sm" onClick={handleSaveEdit} disabled={loading}>
@@ -397,13 +455,18 @@ export function TaxLocationsSection({
                       <tr key={row.id} className="border-b">
                         <td className="py-2 pr-3 font-medium">{row.code}</td>
                         <td className="py-2 pr-3">{row.name || "—"}</td>
-                        <td className="py-2 pr-3 tabular-nums">{row.taxPercent}%</td>
+                        <td className="py-2 pr-3">{row.region || "—"}</td>
+                        <td className="py-2 pr-3 tabular-nums">
+                          {formatPercent(row.purchaseTaxPercent)}
+                        </td>
+                        <td className="py-2 pr-3 tabular-nums font-medium">
+                          {formatPercent(row.salesTaxPercent)}
+                        </td>
                         <td className="py-2 pr-3">
                           <Badge variant={row.isActive ? "secondary" : "outline"}>
                             {row.isActive ? labels.isActive : labels.inactive}
                           </Badge>
                         </td>
-                        <td className="py-2 pr-3 text-muted-foreground">{row.notes || "—"}</td>
                         <td className="py-2 whitespace-nowrap">
                           {canEdit && (
                             <Button size="sm" variant="ghost" onClick={() => startEdit(row)}>
@@ -428,6 +491,7 @@ export function TaxLocationsSection({
               </table>
             </div>
           )}
+          <p className="text-xs text-muted-foreground">{labels.purchaseTaxNote}</p>
         </CardContent>
       </Card>
     </div>
